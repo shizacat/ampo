@@ -44,22 +44,27 @@ class CollectionWorker(BaseModel):
     @classmethod
     async def get(cls: Type[T], **kwargs) -> Optional[T]:
         """
-        Get object from database
+        Get one object from database
         """
         collection = AMPODatabase.get_collection(cls)
-
-        # check id
-        if "id" in kwargs:
-            kwargs["_id"] = kwargs.pop("id")
-        if "_id" in kwargs:
-            if isinstance(kwargs["_id"], str):
-                kwargs["_id"] = ObjectId(kwargs["_id"])
+        kwargs = CollectionWorker._prepea_filter_get(**kwargs)
 
         # get
         data = await collection.find_one(kwargs)
         if data is None:
             return
         return cls.create_obj(**data)
+
+    @classmethod
+    async def get_all(cls: Type[T], **kwargs) -> Optional[T]:
+        """
+        Search all object by filter
+        """
+        collection = AMPODatabase.get_collection(cls)
+        kwargs = CollectionWorker._prepea_filter_get(**kwargs)
+
+        data = await collection.find(kwargs).to_list(None)
+        return [cls.create_obj(**d) for d in data]
 
     @classmethod
     def create_obj(cls, **kwargs):
@@ -72,3 +77,16 @@ class CollectionWorker(BaseModel):
         result = cls(**kwargs)
         result._id = object_id
         return result
+
+    @staticmethod
+    def _prepea_filter_get(**kwargs) -> dict:
+        """
+        Prepea filter data for methods 'get'
+        """
+        # check id
+        if "id" in kwargs:
+            kwargs["_id"] = kwargs.pop("id")
+        if "_id" in kwargs:
+            if isinstance(kwargs["_id"], str):
+                kwargs["_id"] = ObjectId(kwargs["_id"])
+        return kwargs

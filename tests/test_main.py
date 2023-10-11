@@ -69,3 +69,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         # Get by id as str
         d = await A.get(_id=str(object_id))
         self.assertEqual(d._id, object_id)
+
+        # Get all
+        d = await A.get_all()
+        self.assertEqual(len(d), 1)
