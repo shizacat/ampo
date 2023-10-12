@@ -4,8 +4,6 @@ from typing import Optional
 from motor import motor_asyncio
 from pymongo.database import Database
 
-from .utils import cfg_orm_collection
-
 
 logger = logging.getLogger(__name__)
 
@@ -41,21 +39,10 @@ class AMPODatabase:
         self._db = self._client.get_default_database()
 
     @classmethod
-    def get_collection(
-        cls, instance: "CollectionWorker"
-    ) -> motor_asyncio.AsyncIOMotorCollection:
-        """
-        Return collection
-
-        Parameters
-        ----------
-        instance: CollectionWorker
-            The instance of class CollectionWorker
-        """
+    def get_db(cls) -> motor_asyncio.AsyncIOMotorDatabase:
         if cls._instance is None:
             raise RuntimeError("Database not initialize")
-
-        return cls._instance._db[instance.model_config[cfg_orm_collection]]
+        return cls._instance._db
 
     @classmethod
     def clear(cls):

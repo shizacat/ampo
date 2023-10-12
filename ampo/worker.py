@@ -2,9 +2,10 @@ from typing import Optional, TypeVar, Type
 
 from pydantic import BaseModel, Field, ConfigDict
 from bson import ObjectId
+from motor import motor_asyncio
 
 from .db import AMPODatabase
-from .utils import ORMConfig
+from .utils import ORMConfig, cfg_orm_collection
 
 
 T = TypeVar('T')
@@ -27,7 +28,7 @@ class CollectionWorker(BaseModel):
         If the object exists into db, then the object will be replace.
         This is will checked by '_id' field.
         """
-        collection = AMPODatabase.get_collection(self)
+        collection = self._get_collection()
 
         if self._id is None:
             # insert
@@ -46,28 +47,28 @@ class CollectionWorker(BaseModel):
         """
         Get one object from database
         """
-        collection = AMPODatabase.get_collection(cls)
+        collection = cls._get_collection()
         kwargs = CollectionWorker._prepea_filter_get(**kwargs)
 
         # get
         data = await collection.find_one(kwargs)
         if data is None:
             return
-        return cls.create_obj(**data)
+        return cls._create_obj(**data)
 
     @classmethod
     async def get_all(cls: Type[T], **kwargs) -> Optional[T]:
         """
         Search all object by filter
         """
-        collection = AMPODatabase.get_collection(cls)
+        collection = cls._get_collection()
         kwargs = CollectionWorker._prepea_filter_get(**kwargs)
 
         data = await collection.find(kwargs).to_list(None)
-        return [cls.create_obj(**d) for d in data]
+        return [cls._create_obj(**d) for d in data]
 
     @classmethod
-    def create_obj(cls, **kwargs):
+    def _create_obj(cls, **kwargs):
         """
         Create object from database data
         """
@@ -77,6 +78,14 @@ class CollectionWorker(BaseModel):
         result = cls(**kwargs)
         result._id = object_id
         return result
+
+    @classmethod
+    def _get_collection(cls) -> motor_asyncio.AsyncIOMotorCollection:
+        """
+        Return collection
+        """
+        db = AMPODatabase.get_db()
+        return db[cls.model_config[cfg_orm_collection]]
 
     @staticmethod
     def _prepea_filter_get(**kwargs) -> dict:

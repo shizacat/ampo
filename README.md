@@ -31,6 +31,10 @@ await inst_a.save()
 inst_a = await ModelA.get(field1="test")
 ```
 
+## Id
+
+For search by 'id' usages in filter '_id' or 'id' name.
+
 # Development
 
 Style:
