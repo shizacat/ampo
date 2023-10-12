@@ -1,11 +1,12 @@
 from typing import Optional, TypeVar, Type
 
-from pydantic import BaseModel, Field, ConfigDict
 from bson import ObjectId
+import bson.son
 from motor import motor_asyncio
+from pydantic import BaseModel, Field, ConfigDict
 
 from .db import AMPODatabase
-from .utils import ORMConfig, cfg_orm_collection
+from .utils import ORMIndex, cfg_orm_collection, cfg_orm_indexes
 
 
 T = TypeVar('T')
@@ -99,3 +100,32 @@ class CollectionWorker(BaseModel):
             if isinstance(kwargs["_id"], str):
                 kwargs["_id"] = ObjectId(kwargs["_id"])
         return kwargs
+
+
+async def init_collection():
+    """
+    Initialize all collection
+    - Create indexies
+    """
+    for cls in CollectionWorker.__subclasses__():
+        collection = cls._get_collection()
+
+        # Indexes process
+        for field in cls.model_config.get(cfg_orm_indexes, []):
+            orm_index = ORMIndex.model_validate(field)
+
+            # Generation name
+            index_id = 1
+            sorted(orm_index.keys)
+            index_name = "_".join(orm_index.keys) + f"_{index_id}"
+
+            # options
+            options = {}
+            if orm_index.options is not None:
+                options = orm_index.options.model_dump(exclude_none=True)
+
+            await collection.create_index(
+                orm_index.keys,
+                name=index_name,
+                **options
+            )
