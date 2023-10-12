@@ -1,7 +1,7 @@
 # Aio Mongo Pydantic ORM (ampo)
 
 Features:
-- Asyncronous
+- Asynchronous
 
 # Usage
 
