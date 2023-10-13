@@ -20,7 +20,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         db = AMPODatabase(url=mongo_url)
         await db._client.drop_database(db._client.get_default_database())
-        await asyncio.sleep(0.6)
+        # await asyncio.sleep(0.4)
         return await super().asyncSetUp()
 
     async def asyncTearDown(self) -> None:
@@ -127,7 +127,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 str_max_length=10,
                 orm_indexes=[
                     {
-                        "keys": ["field1"],
+                        "keys": ["field4"],
                         "options": {
                             "unique": True
                         }
@@ -135,7 +135,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 ]
             )
 
-            field1: str
+            field4: str
 
         await init_collection()
 
@@ -149,7 +149,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 str_max_length=10,
                 orm_indexes=[
                     {
-                        "keys": ["field1"],
+                        "keys": ["field5"],
                         "options": {
                             "expireAfterSeconds": 20
                         }
@@ -157,6 +157,6 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 ]
             )
 
-            field1: str
+            field5: str
 
         await init_collection()
