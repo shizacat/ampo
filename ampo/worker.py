@@ -1,9 +1,8 @@
 from typing import Optional, TypeVar, Type
 
 from bson import ObjectId
-import bson.son
 from motor import motor_asyncio
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel
 
 from .db import AMPODatabase
 from .utils import ORMIndex, cfg_orm_collection, cfg_orm_indexes
