@@ -20,12 +20,12 @@ class Main(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         db = AMPODatabase(url=mongo_url)
         await db._client.drop_database(db._client.get_default_database())
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(0.6)
         return await super().asyncSetUp()
 
     async def asyncTearDown(self) -> None:
         AMPODatabase.clear()
-        
+
         return await super().asyncTearDown()
 
     def test_make_database_object(self):

@@ -80,3 +80,9 @@ Keys is list of fields.
 
 Style:
 - [NumPy/SciPy docstrings style guide](https://numpydoc.readthedocs.io/en/latest/format.html)
+
+Run tests:
+
+```bash
+env TEST_MONGO_URL=mongodb://localhost/test pytest
+```
