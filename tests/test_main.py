@@ -9,7 +9,6 @@ from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
 
 
 mongo_url = os.environ.get("TEST_MONGO_URL", None)
-mongo_url = "mongodb://localhost/test"
 
 # Check mongo url config
 if mongo_url is None:
