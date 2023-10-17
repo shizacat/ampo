@@ -160,3 +160,29 @@ class Main(unittest.IsolatedAsyncioTestCase):
             field5: str
 
         await init_collection()
+
+    async def test_relationship_01(self):
+        """
+        Embeded document
+        """
+        class CStar(BaseModel):
+            name: str
+
+        class C(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+            )
+
+            field: str
+            star: CStar
+
+        # Create instence
+        a = C(field="test", star=CStar(name="name"))
+        self.assertIsNone(a._id)
+
+        # Save
+        await a.save()
+
+        # Get
+        d = await C.get(field="test")
+        self.assertEqual(d._id, a._id)

@@ -76,6 +76,28 @@ Suppport options:
 
 Keys is list of fields.
 
+## Relationships between documents
+
+### Embeded
+
+It is supported by default. Just, you need create the embeded document as class of pydantic - 'BaseModel'. It will be stored into db as object.
+
+Example:
+```python
+from pydantic import BaseModel
+
+class Embeded(BaseModel):
+    name: str
+
+class ModelA(CollectionWorker):
+    field1: str
+    field2: Embeded
+
+    model_config = ORMConfig(
+        orm_collection="test"
+    )
+```
+
 # Development
 
 Style:
