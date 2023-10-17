@@ -80,7 +80,7 @@ Keys is list of fields.
 
 ### Embeded
 
-It is supported by default. Just, you need create the embeded document as class of pydantic - 'BaseModel'. It will be stored into db as object.
+It is supported by default. Just, you need create the embedded document as class of pydantic - 'BaseModel'. It will be stored into db as object.
 
 Example:
 ```python
