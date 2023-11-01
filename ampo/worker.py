@@ -5,7 +5,9 @@ from motor import motor_asyncio
 from pydantic import BaseModel
 
 from .db import AMPODatabase
-from .utils import ORMIndex, cfg_orm_collection, cfg_orm_indexes
+from .utils import (
+    ORMIndex, cfg_orm_collection, cfg_orm_indexes, cfg_orm_bson_codec_options
+)
 
 
 T = TypeVar('T')
@@ -81,11 +83,11 @@ class CollectionWorker(BaseModel):
 
     @classmethod
     def _get_collection(cls) -> motor_asyncio.AsyncIOMotorCollection:
-        """
-        Return collection
-        """
-        db = AMPODatabase.get_db()
-        return db[cls.model_config[cfg_orm_collection]]
+        """ Return collection """
+        return AMPODatabase.get_db().get_collection(
+            cls.model_config[cfg_orm_collection],
+            codec_options=cls.model_config.get(cfg_orm_bson_codec_options)
+        )
 
     @staticmethod
     def _prepea_filter_get(**kwargs) -> dict:

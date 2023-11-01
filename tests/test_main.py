@@ -1,8 +1,10 @@
 import os
 import asyncio
 import unittest
+import datetime
 
 from bson import ObjectId
+from bson.codec_options import CodecOptions
 from pydantic import ConfigDict, BaseModel
 
 from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
@@ -77,6 +79,28 @@ class Main(unittest.IsolatedAsyncioTestCase):
         # Get all
         d = await A.get_all()
         self.assertEqual(len(d), 1)
+
+    async def test_collectin_02(self):
+        """ Check bson options """
+        class A(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_bson_codec_options=CodecOptions(
+                    tz_aware=True
+                )
+            )
+
+            field1: datetime.datetime
+
+        a = A(field1=datetime.datetime(
+            2000, 1, 1, 10, 0, 0, tzinfo=datetime.timezone.utc))
+        await a.save()
+
+        # Get object
+        d = await A.get()
+        self.assertIsInstance(d, A)
+        self.assertEqual(d.field1, a.field1)
 
     async def test_indexes_01(self):
         """
