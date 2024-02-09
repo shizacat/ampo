@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar, Type
+from typing import Optional, TypeVar, Type, List
 
 from bson import ObjectId
 from motor import motor_asyncio
@@ -59,7 +59,7 @@ class CollectionWorker(BaseModel):
         return cls._create_obj(**data)
 
     @classmethod
-    async def get_all(cls: Type[T], **kwargs) -> Optional[T]:
+    async def get_all(cls: Type[T], **kwargs) -> Optional[List[T]]:
         """
         Search all object by filter
         """
