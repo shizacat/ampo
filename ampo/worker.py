@@ -59,7 +59,7 @@ class CollectionWorker(BaseModel):
         return cls._create_obj(**data)
 
     @classmethod
-    async def get_all(cls: Type[T], **kwargs) -> Optional[List[T]]:
+    async def get_all(cls: Type[T], **kwargs) -> List[T]:
         """
         Search all object by filter
         """
