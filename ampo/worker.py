@@ -193,6 +193,9 @@ async def _create_index(
             )
             is_created = True
             logger.debug("Index created")
-        except OperationFailure:
-            logger.debug("Index alreadey exist")
-            await collection.drop_index(index_name)
+        except OperationFailure as e:
+            if e.details.get("codeName") == "IndexOptionsConflict":
+                logger.debug("Index alreadey exist")
+                await collection.drop_index(index_name)
+            else:
+                raise
