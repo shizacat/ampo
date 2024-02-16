@@ -1,5 +1,7 @@
 from typing import Optional, TypeVar, Type, List
+import logging
 
+import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
 from pydantic import BaseModel
@@ -133,8 +135,8 @@ async def init_collection():
         collection = cls._get_collection()
 
         # Indexes process
-        for field in cls.model_config.get(cfg_orm_indexes, []):
-            orm_index = ORMIndex.model_validate(field)
+        for index_raw in cls.model_config.get(cfg_orm_indexes, []):
+            orm_index = ORMIndex.model_validate(index_raw)
 
             # Generation name
             index_id = 1
@@ -146,6 +148,24 @@ async def init_collection():
             if orm_index.options is not None:
                 options = orm_index.options.model_dump(exclude_none=True)
 
+            # Get type index
+            if "expireAfterSeconds" in options.keys():
+                # condition
+                if len(orm_index.keys) != 1:
+                    raise ValueError("For TTL index set not one key")
+                # is ttl
+                async for index in collection.list_indexes():
+                    if index["key"] != bson.son.SON([(orm_index.keys[0], 1)]):
+                        continue
+                    if index.get("expireAfterSeconds") is None:
+                        logging.warning(
+                            "This field has no option expireAfterSeconds")
+                        break
+                    if index.get("expireAfterSeconds") != orm_index.options.expireAfterSeconds:
+                        await collection.drop_index(index_name)
+                        logging.debug("The index '%s' was dropped", index_name)
+
+            # general
             await collection.create_index(
                 orm_index.keys,
                 name=index_name,
