@@ -1,5 +1,4 @@
 import os
-import asyncio
 import unittest
 import datetime
 
@@ -185,6 +184,33 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
         await init_collection()
 
+    async def test_indexes_06(self):
+        """
+        Update expiration for index with option expireAfterSeconds
+        """
+        class C(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_indexes=[
+                    {
+                        "keys": ["field6"],
+                        "options": {
+                            "expireAfterSeconds": 20
+                        }
+                    }
+                ]
+            )
+
+            field5: str
+            field6: str
+
+        await init_collection()
+
+        await C.update_expiration_value("field6", 1000)
+        await C.update_expiration_value("field5", 100)
+        await C.update_expiration_value("fieald7", 1)
+
     async def test_relationship_01(self):
         """
         Embeded document
@@ -192,7 +218,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         class CStar(BaseModel):
             name: str
 
-        class C(CollectionWorker):
+        class D(CollectionWorker):
             model_config = ORMConfig(
                 orm_collection="test",
             )
@@ -201,12 +227,12 @@ class Main(unittest.IsolatedAsyncioTestCase):
             star: CStar
 
         # Create instence
-        a = C(field="test", star=CStar(name="name"))
+        a = D(field="test", star=CStar(name="name"))
         self.assertIsNone(a._id)
 
         # Save
         await a.save()
 
         # Get
-        d = await C.get(field="test")
+        d = await D.get(field="test")
         self.assertEqual(d._id, a._id)

@@ -1,3 +1,5 @@
+import logging
+import bson.son
 from typing import Optional, TypeVar, Type, List
 
 from bson import ObjectId
@@ -8,6 +10,8 @@ from .db import AMPODatabase
 from .utils import (
     ORMIndex, cfg_orm_collection, cfg_orm_indexes, cfg_orm_bson_codec_options
 )
+
+logger = logging.getLogger(__name__)
 
 
 T = TypeVar('T')
@@ -43,6 +47,36 @@ class CollectionWorker(BaseModel):
         # TODO: Not shure what better
         # await collection.update_one(
         #     {"_id": self._id}, {"$set": self.model_dump()}, upsert=False)
+
+    @classmethod
+    async def update_expiration_value(
+        cls: Type[T],
+        field: str,
+        expire_seconds: int
+    ):
+        """
+        Update expire index for collections
+        """
+        index_name = f"{field}_1"
+
+        collection = cls._get_collection()
+        async for index in collection.list_indexes():
+            if index["key"] != bson.son.SON([(field, 1)]):
+                continue
+            if index.get("expireAfterSeconds") is None:
+                logging.warning("This field has no option expireAfterSeconds")
+                break
+            if index.get("expireAfterSeconds") != expire_seconds:
+                await collection.drop_index(index_name)
+            else:
+                logging.debug("New expiration equals old")
+                break
+            await collection.create_index(
+                field,
+                name=index_name,
+                expireAfterSeconds=expire_seconds
+            )
+            logging.debug("The index for the field has been updated")
 
     @classmethod
     async def get(cls: Type[T], **kwargs) -> Optional[T]:
