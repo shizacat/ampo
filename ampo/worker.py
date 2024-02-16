@@ -1,10 +1,10 @@
 import logging
-import bson.son
 from typing import Optional, TypeVar, Type, List
 
 from bson import ObjectId
 from motor import motor_asyncio
 from pydantic import BaseModel
+from pymongo.errors import OperationFailure
 
 from .db import AMPODatabase
 from .utils import (
@@ -47,36 +47,6 @@ class CollectionWorker(BaseModel):
         # TODO: Not shure what better
         # await collection.update_one(
         #     {"_id": self._id}, {"$set": self.model_dump()}, upsert=False)
-
-    @classmethod
-    async def update_expiration_value(
-        cls: Type[T],
-        field: str,
-        expire_seconds: int
-    ):
-        """
-        Update expire index for collections
-        """
-        index_name = f"{field}_1"
-
-        collection = cls._get_collection()
-        async for index in collection.list_indexes():
-            if index["key"] != bson.son.SON([(field, 1)]):
-                continue
-            if index.get("expireAfterSeconds") is None:
-                logging.warning("This field has no option expireAfterSeconds")
-                break
-            if index.get("expireAfterSeconds") != expire_seconds:
-                await collection.drop_index(index_name)
-            else:
-                logging.debug("New expiration equals old")
-                break
-            await collection.create_index(
-                field,
-                name=index_name,
-                expireAfterSeconds=expire_seconds
-            )
-            logging.debug("The index for the field has been updated")
 
     @classmethod
     async def get(cls: Type[T], **kwargs) -> Optional[T]:
@@ -137,10 +107,13 @@ class CollectionWorker(BaseModel):
         return kwargs
 
 
-async def init_collection():
-    """
-    Initialize all collection
+async def init_collection(custom_expiration: int = None):
+    """Initialize all collection
     - Create indexies
+
+    Args:
+        custom_expiration (int, optional): Custom expiration
+          for update indexes TLL in models (in sec.)
     """
     for cls in CollectionWorker.__subclasses__():
         collection = cls._get_collection()
@@ -150,17 +123,76 @@ async def init_collection():
             orm_index = ORMIndex.model_validate(field)
 
             # Generation name
-            index_id = 1
-            sorted(orm_index.keys)
-            index_name = "_".join(orm_index.keys) + f"_{index_id}"
+            index_name = _generate_index_name(orm_index.keys)
 
             # options
-            options = {}
-            if orm_index.options is not None:
-                options = orm_index.options.model_dump(exclude_none=True)
+            options = _get_index_option(orm_index, custom_expiration)
 
-            await collection.create_index(
+            await _create_index(
+                collection,
                 orm_index.keys,
+                index_name,
+                options
+            )
+
+
+def _get_index_option(
+        orm_index: ORMIndex,
+        custom_expiration: int = None) -> dict:
+    """ Return dict with options for indexes.
+
+    Args:
+        orm_index (ORMIndex): Object ORMIndex
+        custom_expiration (int, optional): Custom expiration
+          for update indexes TLL in models (in sec.)
+    """
+    options = {}
+    if orm_index.options is not None:
+        options = orm_index.options.model_dump(exclude_none=True)
+
+        if options.get("expireAfterSeconds"):
+            if custom_expiration:
+                options.update({"expireAfterSeconds": custom_expiration})
+    return options
+
+
+def _generate_index_name(
+        index_keys: List[str],
+) -> str:
+    """Generate name for index
+
+    Args:
+        index_keys (List[str]): ORMConfig model index keys
+    """
+    index_id = 1
+    sorted(index_keys)
+    return "_".join(index_keys) + f"_{index_id}"
+
+
+async def _create_index(
+        collection: motor_asyncio.AsyncIOMotorCollection,
+        index_keys: List[str],
+        index_name: str,
+        options: dict
+) -> None:
+    """Creating a Collection Index
+
+    Args:
+        collection (motor_asyncio.AsyncIOMotorCollection): Collection object
+        index_keys (List[str]): ORMConfig model index keys
+        index_name (str): name new index
+        options (dict): options index
+    """
+    is_created = False
+    while is_created is False:
+        try:
+            await collection.create_index(
+                index_keys,
                 name=index_name,
                 **options
             )
+            is_created = True
+            logger.debug("Index created")
+        except OperationFailure:
+            logger.debug("Index alreadey exist")
+            await collection.drop_index(index_name)

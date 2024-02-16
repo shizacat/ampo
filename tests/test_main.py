@@ -197,19 +197,17 @@ class Main(unittest.IsolatedAsyncioTestCase):
                         "keys": ["field6"],
                         "options": {
                             "expireAfterSeconds": 20
-                        }
-                    }
+                        },
+
+                    },
                 ]
             )
 
-            field5: str
             field6: str
 
         await init_collection()
-
-        await C.update_expiration_value("field6", 1000)
-        await C.update_expiration_value("field5", 100)
-        await C.update_expiration_value("fieald7", 1)
+        await init_collection(custom_expiration=1000)
+        await init_collection()
 
     async def test_relationship_01(self):
         """
