@@ -185,6 +185,33 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
         await init_collection()
 
+    async def test_indexes_06(self):
+        """
+        Simple. One key. Wiht option expireAfterSeconds
+        Recreate index with new value expireAfterSeconds
+        """
+        class B(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_indexes=[
+                    {
+                        "keys": ["field6"],
+                        "options": {
+                            "expireAfterSeconds": 20
+                        }
+                    }
+                ]
+            )
+
+            field6: datetime.datetime
+
+        await init_collection()
+
+        # Update raw
+        B.update_expiration_value("field6", 10)
+        await init_collection()
+
     async def test_relationship_01(self):
         """
         Embeded document

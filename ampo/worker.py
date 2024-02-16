@@ -70,6 +70,27 @@ class CollectionWorker(BaseModel):
         return [cls._create_obj(**d) for d in data]
 
     @classmethod
+    def update_expiration_value(
+        cls: Type[T], field: str, expire_seconds: int
+    ):
+        """Update expire index for collections by field
+
+        Parameters
+        ----------
+        field : str
+            Name of field, for which value expire will be changed
+        expire_seconds: int
+            New value of expireAfterSeconds, in second
+        """
+        for index in cls.model_config.get(cfg_orm_indexes, []):
+            keys = index.get("keys", [])
+            if len(keys) != 1 or keys[0] != field:
+                continue
+            index["options"]["expireAfterSeconds"] = expire_seconds
+            return
+        raise ValueError(f"The index by '{field}' not found")
+
+    @classmethod
     def _create_obj(cls, **kwargs):
         """
         Create object from database data
