@@ -1,11 +1,9 @@
-import logging
 from typing import Optional
 
 from motor import motor_asyncio
 from pymongo.database import Database
 
-
-logger = logging.getLogger(__name__)
+from .log import logger
 
 
 class AMPODatabase:

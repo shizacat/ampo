@@ -76,6 +76,13 @@ Suppport options:
 
 Keys is list of fields.
 
+### TTL Index
+ 
+It works only with single field ([TTL Indexes](https://www.mongodb.com/docs/manual/core/index-ttl/#ttl-indexes)).
+ 
+You should set the option 'expireAfterSeconds', and field 'keys' should have only single field.
+TTL Indexes
+
 ## Relationships between documents
 
 ### Embeded

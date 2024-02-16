@@ -1,5 +1,4 @@
 from typing import Optional, TypeVar, Type, List
-import logging
 
 import bson.son
 from bson import ObjectId
@@ -10,6 +9,7 @@ from .db import AMPODatabase
 from .utils import (
     ORMIndex, cfg_orm_collection, cfg_orm_indexes, cfg_orm_bson_codec_options
 )
+from .log import logger
 
 
 T = TypeVar('T')
@@ -158,12 +158,12 @@ async def init_collection():
                     if index["key"] != bson.son.SON([(orm_index.keys[0], 1)]):
                         continue
                     if index.get("expireAfterSeconds") is None:
-                        logging.warning(
+                        logger.warning(
                             "This field has no option expireAfterSeconds")
                         break
                     if index.get("expireAfterSeconds") != orm_index.options.expireAfterSeconds:
                         await collection.drop_index(index_name)
-                        logging.debug("The index '%s' was dropped", index_name)
+                        logger.debug("The index '%s' was dropped", index_name)
 
             # general
             await collection.create_index(
