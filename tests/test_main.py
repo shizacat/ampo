@@ -185,6 +185,97 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
         await init_collection()
 
+    async def test_indexes_06(self):
+        """
+        Simple. One key. With option expireAfterSeconds
+        Recreate index with new value expireAfterSeconds
+        """
+        class B(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_indexes=[
+                    {
+                        "keys": ["field6"],
+                        "options": {
+                            "expireAfterSeconds": 20
+                        }
+                    }
+                ]
+            )
+
+            field6: datetime.datetime
+
+        await init_collection()
+
+        # Update raw
+        B.update_expiration_value("field6", 10)
+        await init_collection()
+
+    async def test_indexes_07(self):
+        """
+        Simple. One key. With option expireAfterSeconds
+        Skip if expireAfterSeconds == -1
+        """
+        class B(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_indexes=[
+                    {
+                        "keys": ["field7"],
+                        "options": {
+                            "expireAfterSeconds": -1
+                        }
+                    }
+                ]
+            )
+
+            field7: datetime.datetime
+
+        await init_collection()
+
+        collecton = B._get_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field7_1" not in index_info.keys())
+
+    async def test_indexes_08(self):
+        """
+        Simple. One key. With option expireAfterSeconds
+        Skip if expireAfterSeconds == -1, then set, than set -1 and drop index
+        """
+        class B(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_indexes=[
+                    {
+                        "keys": ["field8"],
+                        "options": {
+                            "expireAfterSeconds": -1
+                        }
+                    }
+                ]
+            )
+
+            field8: datetime.datetime
+
+        collecton = B._get_collection()
+        # Skip
+        await init_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field8_1" not in index_info.keys())
+        # set
+        B.update_expiration_value("field8", 10)
+        await init_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field8_1" in index_info.keys())
+        # unset -> drop index
+        B.update_expiration_value("field8", -1)
+        await init_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field8_1" not in index_info.keys())
+
     async def test_relationship_01(self):
         """
         Embeded document
