@@ -75,13 +75,13 @@ class CollectionWorker(BaseModel):
     def update_expiration_value(
         cls: Type[T], field: str, expire_seconds: int
     ):
-        """Update expire index for collections by field
+        """Update expire index for collections by field name
 
         Parameters
         ----------
         field : str
             Name of field, for which value expire will be changed
-        expire_seconds: int
+        expire_seconds : int
             New value of expireAfterSeconds, in second
         """
         for index in cls.model_config.get(cfg_orm_indexes, []):
@@ -143,29 +143,34 @@ async def init_collection():
             sorted(orm_index.keys)
             index_name = "_".join(orm_index.keys) + f"_{index_id}"
 
-            # options
+            # Create options
+            index_is_ttl = False
             options = {}
             if orm_index.options is not None:
                 options = orm_index.options.model_dump(exclude_none=True)
+                index_is_ttl = orm_index.options.expireAfterSeconds is not None
 
-            # Get type index
-            if "expireAfterSeconds" in options.keys():
+            # Process TTL index
+            if index_is_ttl:
                 # condition
                 if len(orm_index.keys) != 1:
-                    raise ValueError("For TTL index set not one key")
-                # is ttl
+                    raise ValueError("For TTL index, the key is set only one")
+                # Check exist
                 async for index in collection.list_indexes():
                     if index["key"] != bson.son.SON([(orm_index.keys[0], 1)]):
                         continue
                     if index.get("expireAfterSeconds") is None:
                         logger.warning(
-                            "This field has no option expireAfterSeconds")
+                            "This index has no option expireAfterSeconds")
                         break
-                    if index.get("expireAfterSeconds") != orm_index.options.expireAfterSeconds:
+                    if index.get("expireAfterSeconds") != orm_index.options.expireAfterSeconds:  # noqa: E501
                         await collection.drop_index(index_name)
                         logger.debug("The index '%s' was dropped", index_name)
 
-            # general
+            # Skip if for ttl not set expire time
+            if index_is_ttl and orm_index.options.expireAfterSeconds == -1:
+                continue
+
             await collection.create_index(
                 orm_index.keys,
                 name=index_name,

@@ -81,7 +81,38 @@ Keys is list of fields.
 It works only with single field ([TTL Indexes](https://www.mongodb.com/docs/manual/core/index-ttl/#ttl-indexes)).
  
 You should set the option 'expireAfterSeconds', and field 'keys' should have only single field.
-TTL Indexes
+
+Example:
+
+```python
+# import
+
+# Initilize DB before calls db methods
+AMPODatabase(url="mongodb://test")
+
+# Pydantic Model
+class ModelA(CollectionWorker):
+    field1: datetime
+
+    model_config = ORMConfig(
+        orm_collection="test",
+        orm_indexes=[
+            {
+                "keys": ["field1"],
+                "options": {
+                    "expireAfterSeconds": 10
+                }
+            }
+        ]
+    )
+
+# optional, set new value
+ModelA.update_expiration_value("field1", 20)
+
+await init_collection()
+```
+
+if you want to set the 'expireAfterSeconds' only from method 'update_expiration_value', set it to '-1'.
 
 ## Relationships between documents
 

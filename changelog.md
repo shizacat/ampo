@@ -5,6 +5,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2024-02-17
+
+### Added
+
+- The method 'update_expiration_value' was added for worker.
+- Was changed behavior for TTL index.
+
+
 ## [0.2.0] - 2023-11-01
 
 ### Added
