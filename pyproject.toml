@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ampo"
-version = "0.2.0"
+dynamic = ["version"]
 authors = [
   { name="Alexey Matveev", email="" },
 ]
@@ -25,6 +25,9 @@ dependencies = [
 
 [project.urls]
 "Homepage" = "https://github.com/shizacat/ampo"
+
+[tool.hatch.version]
+path = "ampo/__init__.py"
 
 [tool.hatch.build]
 exclude = [
