@@ -3,26 +3,30 @@ from typing import Optional
 from motor import motor_asyncio
 from pymongo.database import Database
 
-from .log import logger
+
+class SingletonMeta(type):
+    def __init__(cls, name, bases, namespace):
+        super().__init__(name, bases, namespace)
+        cls._instance = None
+
+    def __call__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__call__(*args, **kwargs)
+
+        return cls._instance
+
+    def clear(cls):
+        cls._instance = None
 
 
-class AMPODatabase:
+class AMPODatabase(metaclass=SingletonMeta):
     """
     Singleton.
     Class for work with montodb
     """
-    _instance = None
 
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            logger.debug('Creating the object')
-            cls._instance = super(AMPODatabase, cls).__new__(cls)
-            cls._instance.__init(*args, **kwargs)
-        return cls._instance
-
-    def __init(self, url: str):
+    def __init__(self, url: str):
         """
-        Initialization
 
         Parameters
         ----------
@@ -40,8 +44,5 @@ class AMPODatabase:
     def get_db(cls) -> motor_asyncio.AsyncIOMotorDatabase:
         if cls._instance is None:
             raise RuntimeError("Database not initialize")
+        cls._instance: AMPODatabase
         return cls._instance._db
-
-    @classmethod
-    def clear(cls):
-        cls._instance = None
