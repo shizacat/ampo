@@ -107,7 +107,7 @@ class CollectionWorker(BaseModel):
     @classmethod
     def _get_collection(cls) -> motor_asyncio.AsyncIOMotorCollection:
         """ Return collection """
-        return AMPODatabase.get_db().get_collection(
+        return AMPODatabase().get_db().get_collection(
             cls.model_config[cfg_orm_collection],
             codec_options=cls.model_config.get(cfg_orm_bson_codec_options)
         )

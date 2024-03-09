@@ -22,7 +22,7 @@ class SingletonMeta(type):
 class AMPODatabase(metaclass=SingletonMeta):
     """
     Singleton.
-    Class for work with montodb
+    Class for work with mongodb
     """
 
     def __init__(self, url: str):
@@ -40,9 +40,5 @@ class AMPODatabase(metaclass=SingletonMeta):
         self._client = motor_asyncio.AsyncIOMotorClient(url)
         self._db = self._client.get_default_database()
 
-    @classmethod
-    def get_db(cls) -> motor_asyncio.AsyncIOMotorDatabase:
-        if cls._instance is None:
-            raise RuntimeError("Database not initialize")
-        cls._instance: AMPODatabase
-        return cls._instance._db
+    def get_db(self) -> motor_asyncio.AsyncIOMotorDatabase:
+        return self._db
