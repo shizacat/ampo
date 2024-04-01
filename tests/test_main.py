@@ -53,6 +53,9 @@ class Main(unittest.IsolatedAsyncioTestCase):
         a = A(field1="test")
         self.assertIsNone(a._id)
 
+        # Create instence, second
+        await A(field1="test01").save()
+
         # Save
         await a.save()
         object_id = a._id
@@ -77,6 +80,12 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(d._id, object_id)
 
         # Get all
+        d = await A.get_all()
+        self.assertEqual(len(d), 2)
+
+        # Delete
+        d = await A.get(_id=object_id)
+        await d.delete()
         d = await A.get_all()
         self.assertEqual(len(d), 1)
 
@@ -301,3 +310,22 @@ class Main(unittest.IsolatedAsyncioTestCase):
         # Get
         d = await C.get(field="test")
         self.assertEqual(d._id, a._id)
+
+    async def test_delete_01(self):
+        """
+        Delete object, not saved
+        """
+        class A(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test"
+            )
+
+            field1: str
+
+        await init_collection()
+
+        # Create instence
+        a = A(field1="test")
+        self.assertIsNone(a._id)
+        with self.assertRaises(ValueError):
+            await a.delete()

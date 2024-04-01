@@ -71,6 +71,15 @@ class CollectionWorker(BaseModel):
         data = await collection.find(kwargs).to_list(None)
         return [cls._create_obj(**d) for d in data]
 
+    async def delete(self):
+        """
+        Delete object from database
+        """
+        collection = self._get_collection()
+        if self._id is None:
+            raise ValueError("Object not created")
+        await collection.delete_one({"_id": self._id})
+
     @classmethod
     def update_expiration_value(
         cls: Type[T], field: str, expire_seconds: int

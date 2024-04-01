@@ -7,9 +7,17 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+
+## [0.2.3] - 2024-04-01
+
 ### Changed
 
 - The method 'db.AMPODatabase.get_db' is not longer a 'classmethod'
+
+### Added
+
+- The Method 'delete'
+
 
 ## [0.2.2] - 2024-02-17
 
