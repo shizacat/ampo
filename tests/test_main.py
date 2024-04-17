@@ -219,7 +219,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await init_collection()
 
         # Update raw
-        B.update_expiration_value("field6", 10)
+        B.expiration_index_update("field6", 10)
         await init_collection()
 
     async def test_indexes_ttl_07(self):
@@ -277,12 +277,12 @@ class Main(unittest.IsolatedAsyncioTestCase):
         index_info = await collecton.index_information()
         self.assertTrue("field8_1" not in index_info.keys())
         # set
-        B.update_expiration_value("field8", 10)
+        B.expiration_index_update("field8", 10)
         await init_collection()
         index_info = await collecton.index_information()
         self.assertTrue("field8_1" in index_info.keys())
         # unset -> drop index
-        B.update_expiration_value("field8", -1)
+        B.expiration_index_update("field8", -1)
         await init_collection()
         index_info = await collecton.index_information()
         self.assertTrue("field8_1" not in index_info.keys())
@@ -346,7 +346,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertTrue("field10_1" in index_info.keys())
 
         # Don't change
-        B.update_expiration_value("field10", -1)
+        B.expiration_index_update("field10", -1)
         B.expiration_index_skip("field10")
         await init_collection()
         index_info = await collecton.index_information()
