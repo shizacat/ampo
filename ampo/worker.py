@@ -81,6 +81,12 @@ class CollectionWorker(BaseModel):
         await collection.delete_one({"_id": self._id})
 
     @classmethod
+    async def count(cls, **kwargs) -> int:
+        """Return count of objects"""
+        return await cls._get_collection().count_documents(
+            CollectionWorker._prepea_filter_get(**kwargs))
+
+    @classmethod
     def update_expiration_value(
         cls: Type[T], field: str, expire_seconds: int
     ):

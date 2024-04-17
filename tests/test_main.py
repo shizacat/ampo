@@ -329,3 +329,27 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(a._id)
         with self.assertRaises(ValueError):
             await a.delete()
+
+    async def test_count_01(self):
+        """
+        Count objects
+        """
+        class A(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test"
+            )
+            field1: str
+
+        await init_collection()
+
+        # Check is zero
+        self.assertEqual(await A.count(), 0)
+
+        # Add
+        await A(field1="test").save()
+        await A(field1="abc").save()
+
+        # check total
+        self.assertEqual(await A.count(), 2)
+        # check filter
+        self.assertEqual(await A.count(field1="test"), 1)

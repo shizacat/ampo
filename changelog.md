@@ -8,6 +8,13 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 ## [Unreleased]
 
 
+## [0.2.4] - 2024-04-17
+
+### Added
+
+- The Method 'count' was added
+
+
 ## [0.2.3] - 2024-04-01
 
 ### Changed
