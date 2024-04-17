@@ -7,6 +7,16 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.2.5] - 2024-04-17
+
+### Added
+
+- The method 'expiration_index_skip' was added
+
+## Changed
+
+- The method 'update_expiration_value' was renamed to 'expiration_index_update'
+
 
 ## [0.2.4] - 2024-04-17
 

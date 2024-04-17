@@ -87,7 +87,7 @@ class CollectionWorker(BaseModel):
             CollectionWorker._prepea_filter_get(**kwargs))
 
     @classmethod
-    def update_expiration_value(
+    def expiration_index_update(
         cls: Type[T], field: str, expire_seconds: int
     ):
         """Update expire index for collections by field name
@@ -104,6 +104,25 @@ class CollectionWorker(BaseModel):
             if len(keys) != 1 or keys[0] != field:
                 continue
             index["options"]["expireAfterSeconds"] = expire_seconds
+            return
+        raise ValueError(f"The index by '{field}' not found")
+
+    @classmethod
+    def expiration_index_skip(cls: Type[T], field: str):
+        """Skip index for collections by field name
+
+        Parameters
+        ----------
+        field : str
+            Name of field, for which index will be skipped
+        """
+        indexes = cls.model_config.get(cfg_orm_indexes, [])
+        for i, index in enumerate(indexes):
+            keys = index.get("keys", [])
+            if len(keys) != 1 or keys[0] != field:
+                continue
+            indexes: list
+            indexes.pop(i)
             return
         raise ValueError(f"The index by '{field}' not found")
 

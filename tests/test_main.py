@@ -172,9 +172,10 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
         await init_collection()
 
-    async def test_indexes_05(self):
+    async def test_indexes_ttl_05(self):
         """
-        Simple. One key. Wiht option expireAfterSeconds
+        One key. With option expireAfterSeconds
+        Normal setup
         """
         class B(CollectionWorker):
             model_config = ORMConfig(
@@ -194,9 +195,9 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
         await init_collection()
 
-    async def test_indexes_06(self):
+    async def test_indexes_ttl_06(self):
         """
-        Simple. One key. With option expireAfterSeconds
+        One key. With option expireAfterSeconds
         Recreate index with new value expireAfterSeconds
         """
         class B(CollectionWorker):
@@ -221,10 +222,11 @@ class Main(unittest.IsolatedAsyncioTestCase):
         B.update_expiration_value("field6", 10)
         await init_collection()
 
-    async def test_indexes_07(self):
+    async def test_indexes_ttl_07(self):
         """
-        Simple. One key. With option expireAfterSeconds
+        One key. With option expireAfterSeconds
         Skip if expireAfterSeconds == -1
+        Index don't exist
         """
         class B(CollectionWorker):
             model_config = ORMConfig(
@@ -248,9 +250,9 @@ class Main(unittest.IsolatedAsyncioTestCase):
         index_info = await collecton.index_information()
         self.assertTrue("field7_1" not in index_info.keys())
 
-    async def test_indexes_08(self):
+    async def test_indexes_ttl_08(self):
         """
-        Simple. One key. With option expireAfterSeconds
+        One key. With option expireAfterSeconds
         Skip if expireAfterSeconds == -1, then set, than set -1 and drop index
         """
         class B(CollectionWorker):
@@ -284,6 +286,71 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await init_collection()
         index_info = await collecton.index_information()
         self.assertTrue("field8_1" not in index_info.keys())
+
+    async def test_indexes_ttl_09(self):
+        """
+        One key. With option expireAfterSeconds
+        Skip create index. Index don't exist
+        """
+        class B(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_indexes=[
+                    {
+                        "keys": ["field9"],
+                        "options": {
+                            "expireAfterSeconds": 10
+                        }
+                    }
+                ]
+            )
+
+            field8: datetime.datetime
+
+        collecton = B._get_collection()
+
+        # Index don't need created
+        B.expiration_index_skip("field9")
+        await init_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field9_1" not in index_info.keys())
+
+    async def test_indexes_ttl_10(self):
+        """
+        One key. With option expireAfterSeconds
+        Index exist. Index don't should be changed
+        """
+        class B(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                str_max_length=10,
+                orm_indexes=[
+                    {
+                        "keys": ["field10"],
+                        "options": {
+                            "expireAfterSeconds": 10
+                        }
+                    }
+                ]
+            )
+
+            field8: datetime.datetime
+
+        collecton = B._get_collection()
+
+        # Create
+        index_info = await collecton.index_information()
+        await init_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field10_1" in index_info.keys())
+
+        # Don't change
+        B.update_expiration_value("field10", -1)
+        B.expiration_index_skip("field10")
+        await init_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field10_1" in index_info.keys())
 
     async def test_relationship_01(self):
         """

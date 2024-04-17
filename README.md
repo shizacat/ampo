@@ -113,6 +113,7 @@ await init_collection()
 ```
 
 if you want to set the 'expireAfterSeconds' only from method 'update_expiration_value', set it to '-1'.
+if you want skip the index changed, call method 'expiration_index_skip' before init_collection.
 
 ## Relationships between documents
 
