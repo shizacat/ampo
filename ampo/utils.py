@@ -17,6 +17,7 @@ class ORMIndexOptions(BaseModel):
 class ORMIndex(BaseModel):
     keys: List[str]
     options: Optional[ORMIndexOptions] = None
+    skip_initialization: bool = False
 
 
 class ORMConfig(ConfigDict):

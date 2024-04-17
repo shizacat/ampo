@@ -7,6 +7,13 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.2.6] - 2024-04-17
+
+### Changed
+
+- The 'update_expiration_value' method has been updated to allow for multiple calls without error.
+
+
 ## [0.2.5] - 2024-04-17
 
 ### Added

@@ -121,8 +121,7 @@ class CollectionWorker(BaseModel):
             keys = index.get("keys", [])
             if len(keys) != 1 or keys[0] != field:
                 continue
-            indexes: list
-            indexes.pop(i)
+            index["skip_initialization"] = True
             return
         raise ValueError(f"The index by '{field}' not found")
 
@@ -176,6 +175,10 @@ async def init_collection():
             index_id = 1
             sorted(orm_index.keys)
             index_name = "_".join(orm_index.keys) + f"_{index_id}"
+
+            # Check skip
+            if orm_index.skip_initialization:
+                continue
 
             # Create options
             index_is_ttl = False

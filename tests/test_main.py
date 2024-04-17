@@ -352,6 +352,12 @@ class Main(unittest.IsolatedAsyncioTestCase):
         index_info = await collecton.index_information()
         self.assertTrue("field10_1" in index_info.keys())
 
+        # Second call
+        B.expiration_index_skip("field10")
+        await init_collection()
+        index_info = await collecton.index_information()
+        self.assertTrue("field10_1" in index_info.keys())
+
     async def test_relationship_01(self):
         """
         Embeded document
