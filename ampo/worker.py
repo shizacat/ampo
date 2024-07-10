@@ -107,16 +107,11 @@ class CollectionWorker(BaseModel):
                     cfg_lock_record.lock_field: True,
                     cfg_lock_record.lock_field_time_start: l_dt_start
                 }
-            }
+            },
+            return_document=True,  # return updated document
         )
         if data is None:
             return
-
-        # Update value of obj
-        data.update({
-            cfg_lock_record.lock_field: True,
-            cfg_lock_record.lock_field_time_start: l_dt_start
-        })
         return cls._create_obj(**data)
 
     async def reset_lock(self):
