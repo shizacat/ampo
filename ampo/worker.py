@@ -96,52 +96,53 @@ class CollectionWorker(BaseModel):
     @classmethod
     async def get_and_lock(cls: Type[T], **kwargs: dict) -> Optional[T]:
         """Get and lock"""
-        # check lock-record is enabled
-        cfg_lock_record: ORMLockRecord = cls.model_config.get(
-            cfg_orm_lock_record)
-        if cfg_lock_record is None:
-            raise ValueError("Lock record is not enabled")
+        cfg_lock_record = cls._get_cfg_lock_record()
 
-        data = await cls._get_collection().find_one_and_update(
-            filter=kwargs,
+        l_dt_start = datetime_utcnow_tz()
+        kwargs.update({cfg_lock_record.lock_field: False})
+        data: Optional[dict] = await cls._get_collection().find_one_and_update(
+            filter=CollectionWorker._prepea_filter_get(**kwargs),
             update={
                 "$set": {
                     cfg_lock_record.lock_field: True,
-                    cfg_lock_record.lock_field_time_start: datetime_utcnow_tz()
+                    cfg_lock_record.lock_field_time_start: l_dt_start
                 }
             }
         )
         if data is None:
             return
+
+        # Update value of obj
+        data.update({
+            cfg_lock_record.lock_field: True,
+            cfg_lock_record.lock_field_time_start: l_dt_start
+        })
         return cls._create_obj(**data)
 
     async def reset_lock(self):
         """Reset lock"""
         # check lock-record is enabled
-        cfg_lock_record: ORMLockRecord = self.model_config.get(
-            cfg_orm_lock_record)
-        if cfg_lock_record is None:
-            raise ValueError("Lock record is not enabled")
+        cfg_lock_record = self._get_cfg_lock_record()
         # check object is saved
         if self._id is None:
             raise ValueError("Not saved")
 
         # update field
-        self.model_fields[cfg_lock_record.lock_field] = False
+        setattr(self, cfg_lock_record.lock_field, False)
 
         # update document
         await self._get_collection().update_one(
-            filter={"_id": self._id},
+            filter=CollectionWorker._prepea_filter_get(_id=self._id),
             update={
                 "$set": {
-                    cfg_lock_record.lock_field: self.model_fields[
-                        cfg_lock_record.lock_field]
+                    cfg_lock_record.lock_field: getattr(
+                        self, cfg_lock_record.lock_field)
                 }
             }
         )
 
-    @asynccontextmanager
     @classmethod
+    @asynccontextmanager
     async def get_and_lock_context(
         cls: Type[T], **kwargs: dict
     ) -> AsyncIterator[T]:
@@ -211,6 +212,15 @@ class CollectionWorker(BaseModel):
             cls.model_config[cfg_orm_collection],
             codec_options=cls.model_config.get(cfg_orm_bson_codec_options)
         )
+
+    @classmethod
+    def _get_cfg_lock_record(cls) -> ORMLockRecord:
+        """Get cfg lock record"""
+        cfg_lock_record: Optional[dict] = cls.model_config.get(
+            cfg_orm_lock_record)
+        if cfg_lock_record is None:
+            raise ValueError("Lock record is not enabled")
+        return ORMLockRecord(**cfg_lock_record)
 
     @staticmethod
     def _prepea_filter_get(**kwargs) -> dict:
