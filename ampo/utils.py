@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from pydantic import ConfigDict, BaseModel, Field
 from bson.codec_options import CodecOptions
@@ -7,6 +8,7 @@ from bson.codec_options import CodecOptions
 cfg_orm_collection = "orm_collection"
 cfg_orm_indexes = "orm_indexes"
 cfg_orm_bson_codec_options = "orm_bson_codec_options"
+cfg_orm_lock_record = "orm_lock_record"
 
 
 class ORMIndexOptions(BaseModel):
@@ -54,3 +56,8 @@ class ORMConfig(ConfigDict):
     orm_indexes: List[ORMIndex]
     orm_bson_codec_options: Optional[CodecOptions]
     orm_lock_record: Optional[ORMLockRecord]
+
+
+def datetime_utcnow_tz() -> datetime:
+    """Return datetime utc now with timezone"""
+    return datetime.now(tz=timezone.utc)
