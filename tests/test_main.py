@@ -2,6 +2,7 @@ import os
 import asyncio
 import unittest
 import datetime
+from typing import Optional
 
 from bson import ObjectId
 from bson.codec_options import CodecOptions
@@ -426,3 +427,60 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await A.count(), 2)
         # check filter
         self.assertEqual(await A.count(field1="test"), 1)
+
+    async def test_lock_record_01(self):
+        """Usage lock_record."""
+        class A01(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                orm_lock_record={
+                    "lock_field": "lfield",
+                    "lock_field_time_start": "field_dt_start",
+                }
+            )
+            field1: str
+            lfield: bool = False
+            field_dt_start: Optional[datetime.datetime] = None
+
+        await init_collection()
+
+        # Add, lock field is not required
+        await A01(field1="test").save()
+
+        # Get lock
+        a = await A01.get_and_lock(field1="test")
+        self.assertIsInstance(a, A01)
+        self.assertEqual(a.lfield, True)  # lock is set
+        self.assertIsNotNone(a.field_dt_start)  # lock start time is set
+
+        # Not found
+        b = await A01.get_and_lock(field1="test")
+        self.assertIsNone(b)
+
+        # Unlock
+        await a.reset_lock()
+        self.assertEqual(a.lfield, False)  # lock is reset
+
+        with self.subTest("check context"):
+            async with A01.get_and_lock_context(field1="test") as a:
+                self.assertEqual(a.lfield, True)  # lock is set
+
+                # Not found
+                b = await A01.get_and_lock(field1="test")
+                self.assertIsNone(b)
+        self.assertEqual(a.lfield, False)  # lock is unset
+
+    async def test_lock_record_02(self):
+        """Not configured lock_record."""
+        class A01(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+            )
+            field1: str
+            lfield: bool = False
+            field_dt_start: Optional[datetime.datetime] = None
+
+        await init_collection()
+
+        with self.assertRaises(ValueError):
+            await A01.get_and_lock(field1="test")

@@ -1,4 +1,5 @@
-from typing import Optional, TypeVar, Type, List
+from contextlib import asynccontextmanager
+from typing import Optional, TypeVar, Type, List, AsyncIterator
 
 import bson.son
 from bson import ObjectId
@@ -7,12 +8,18 @@ from pydantic import BaseModel
 
 from .db import AMPODatabase
 from .utils import (
-    ORMIndex, cfg_orm_collection, cfg_orm_indexes, cfg_orm_bson_codec_options
+    ORMIndex,
+    ORMLockRecord,
+    cfg_orm_collection,
+    cfg_orm_indexes,
+    cfg_orm_bson_codec_options,
+    cfg_orm_lock_record,
+    datetime_utcnow_tz,
 )
 from .log import logger
 
 
-T = TypeVar('T')
+T = TypeVar('T', bound='CollectionWorker')
 
 
 class CollectionWorker(BaseModel):
@@ -81,10 +88,66 @@ class CollectionWorker(BaseModel):
         await collection.delete_one({"_id": self._id})
 
     @classmethod
-    async def count(cls, **kwargs) -> int:
+    async def count(cls: Type[T], **kwargs) -> int:
         """Return count of objects"""
         return await cls._get_collection().count_documents(
             CollectionWorker._prepea_filter_get(**kwargs))
+
+    @classmethod
+    async def get_and_lock(cls: Type[T], **kwargs: dict) -> Optional[T]:
+        """Get and lock"""
+        cfg_lock_record = cls._get_cfg_lock_record()
+
+        l_dt_start = datetime_utcnow_tz()
+        kwargs.update({cfg_lock_record.lock_field: False})
+        data: Optional[dict] = await cls._get_collection().find_one_and_update(
+            filter=CollectionWorker._prepea_filter_get(**kwargs),
+            update={
+                "$set": {
+                    cfg_lock_record.lock_field: True,
+                    cfg_lock_record.lock_field_time_start: l_dt_start
+                }
+            },
+            return_document=True,  # return updated document
+        )
+        if data is None:
+            return
+        return cls._create_obj(**data)
+
+    async def reset_lock(self):
+        """Reset lock"""
+        # check lock-record is enabled
+        cfg_lock_record = self._get_cfg_lock_record()
+        # check object is saved
+        if self._id is None:
+            raise ValueError("Not saved")
+
+        # update field
+        setattr(self, cfg_lock_record.lock_field, False)
+
+        # update document
+        await self._get_collection().update_one(
+            filter=CollectionWorker._prepea_filter_get(_id=self._id),
+            update={
+                "$set": {
+                    cfg_lock_record.lock_field: getattr(
+                        self, cfg_lock_record.lock_field)
+                }
+            }
+        )
+
+    @classmethod
+    @asynccontextmanager
+    async def get_and_lock_context(
+        cls: Type[T], **kwargs: dict
+    ) -> AsyncIterator[T]:
+        """Get and lock context"""
+        obj = await cls.get_and_lock(**kwargs)
+        try:
+            yield obj
+        finally:
+            if obj is not None:
+                await obj.reset_lock()
 
     @classmethod
     def expiration_index_update(
@@ -144,6 +207,15 @@ class CollectionWorker(BaseModel):
             cls.model_config[cfg_orm_collection],
             codec_options=cls.model_config.get(cfg_orm_bson_codec_options)
         )
+
+    @classmethod
+    def _get_cfg_lock_record(cls) -> ORMLockRecord:
+        """Get cfg lock record"""
+        cfg_lock_record: Optional[dict] = cls.model_config.get(
+            cfg_orm_lock_record)
+        if cfg_lock_record is None:
+            raise ValueError("Lock record is not enabled")
+        return ORMLockRecord(**cfg_lock_record)
 
     @staticmethod
     def _prepea_filter_get(**kwargs) -> dict:

@@ -137,6 +137,46 @@ class ModelA(CollectionWorker):
     )
 ```
 
+## Lock Record
+
+It is a mechanism that allows you to retrieve a record with a lock. It is based on the [findOneAndUpdate()](https://www.mongodb.com/docs/manual/reference/method/db.collection.findOneAndUpdate/). When the record is found, the field "lock_field" is set to True. And when the next search is made, this record will be skipped.
+
+Example:
+
+```python
+import datetime
+from typing import Optional
+from ampo import CollectionWorker, AMPODatabase, ORMConfig, init_collection
+
+# Pydantic Model
+class ModelA(CollectionWorker):
+    field1: str
+    lfield: bool = False
+    field_dt_start: Optional[datetime.datetime] = None
+
+    model_config = ORMConfig(
+        orm_collection="test",
+        orm_lock_record={
+            "lock_field": "lfield",
+            "lock_field_time_start": "field_dt_start",
+        }
+    )
+
+await init_collection()
+
+inst_a = ModelA("test", 123)
+await inst_a.save()
+
+inst_a = await ModelA.get_and_lock(field1="test")
+# process
+await inst_a.reset_lock()
+
+# as context
+async with ModelA.get_and_lock_context(field1="test") as inst_a:
+    pass
+    # process
+```
+
 # Development
 
 Style:
