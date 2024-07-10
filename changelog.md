@@ -7,6 +7,8 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.2.7] - 2024-07-10
+
 ### Added
 
 - Add mechanism - lock-record
