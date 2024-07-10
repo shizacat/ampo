@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import ConfigDict, BaseModel
+from pydantic import ConfigDict, BaseModel, Field
 from bson.codec_options import CodecOptions
 
 # Definition
@@ -20,6 +20,17 @@ class ORMIndex(BaseModel):
     skip_initialization: bool = False
 
 
+class ORMLockRecord(BaseModel):
+    """
+    Lock record for ORM config
+    """
+    lock_field: str = Field(
+        ..., description="Field by which the lock will be acquired")
+    lock_field_time_start: str = Field(
+        ...,
+        description="Field which will be contained the start time of the lock")
+
+
 class ORMConfig(ConfigDict):
     """
     Custon configuration for Collection
@@ -33,3 +44,4 @@ class ORMConfig(ConfigDict):
     orm_collection: str
     orm_indexes: List[ORMIndex]
     orm_bson_codec_options: Optional[CodecOptions]
+    orm_lock_record: Optional[ORMLockRecord]
