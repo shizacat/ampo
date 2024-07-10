@@ -23,12 +23,21 @@ class ORMIndex(BaseModel):
 class ORMLockRecord(BaseModel):
     """
     Lock record for ORM config
+
+    Field should be add to the model
     """
     lock_field: str = Field(
-        ..., description="Field by which the lock will be acquired")
+        ..., description=(
+            "Field by which the lock will be acquired. Type: boolean"
+        )
+    )
     lock_field_time_start: str = Field(
         ...,
-        description="Field which will be contained the start time of the lock")
+        description=(
+            "Field which will be contained the start time of the lock. "
+            "Type: datetime"
+        )
+    )
 
 
 class ORMConfig(ConfigDict):
