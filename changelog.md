@@ -7,6 +7,11 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+### Added
+
+- Add mechanism - lock-record
+
+
 ## [0.2.6] - 2024-04-17
 
 ### Changed
@@ -20,7 +25,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 - The method 'expiration_index_skip' was added
 
-## Changed
+### Changed
 
 - The method 'update_expiration_value' was renamed to 'expiration_index_update'
 
