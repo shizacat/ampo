@@ -7,6 +7,10 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+- Added to index new option - 'commit_quorum'. See [docs](https://www.mongodb.com/docs/manual/reference/command/createIndexes/#std-label-createIndexes-cmd-commitQuorum).
+- Added periodic checking to the method create indexes.
+
+
 ## [0.2.7] - 2024-07-10
 
 ### Added

@@ -5,6 +5,7 @@ import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
 from pydantic import BaseModel
+from pymongo import IndexModel
 
 from .db import AMPODatabase
 from .utils import (
@@ -15,6 +16,7 @@ from .utils import (
     cfg_orm_bson_codec_options,
     cfg_orm_lock_record,
     datetime_utcnow_tz,
+    period_check_future,
 )
 from .log import logger
 
@@ -280,8 +282,20 @@ async def init_collection():
             if index_is_ttl and orm_index.options.expireAfterSeconds == -1:
                 continue
 
-            await collection.create_index(
-                orm_index.keys,
-                name=index_name,
-                **options
+            # Create index
+            cr_ind_opt: dict = {}
+            if orm_index.commit_quorum_value is not None:
+                cr_ind_opt["commitQuorum"] = orm_index.commit_quorum_value
+            await period_check_future(
+                aws=collection.create_indexes(
+                    [IndexModel(
+                        keys=orm_index.keys,
+                        name=index_name,
+                        **options,
+                    )],
+                    **cr_ind_opt,
+                ),
+                period=40.0,
+                msg=f"The index '{index_name}' is creating...",
+                logger=logger,
             )
