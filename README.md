@@ -2,6 +2,7 @@
 
 Features:
 - Asynchronous
+- Support MongoDB from 4.2
 
 # Usage
 
@@ -121,6 +122,8 @@ The replica set cluster has a specific behavior when creating indexes.
 If one of the nodes in the cluster is not reachable, the index creation will wait for the node to become available.
 See [Index Builds in Replicated Environments](https://www.mongodb.com/docs/manual/core/index-creation/#index-builds-in-replicated-environments).
 Change this behavior by setting the 'commit_quorum' option to 'majority'. See [createIndexes](https://www.mongodb.com/docs/manual/reference/method/db.collection.createIndex/#std-label-createIndex-method-commitQuorum).
+
+Supported only from MongoDB version 4.4.
 
 Example:
 

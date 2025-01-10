@@ -31,13 +31,15 @@ class ORMIndex(BaseModel):
     keys: List[str]
     options: Optional[ORMIndexOptions] = None
     skip_initialization: bool = False
-    commit_quorum: Union[commitQuorum, int] = commitQuorum.VOTING_MEMBERS
+    commit_quorum: Optional[Union[commitQuorum, int]] = None
 
     @property
-    def commit_quorum_value(self) -> Union[int, str]:
+    def commit_quorum_value(self) -> Optional[Union[int, str]]:
         """
         Return value of commit quorum
         """
+        if self.commit_quorum is None:
+            return
         if isinstance(self.commit_quorum, int):
             return self.commit_quorum
         return self.commit_quorum.value

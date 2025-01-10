@@ -283,6 +283,9 @@ async def init_collection():
                 continue
 
             # Create index
+            cr_ind_opt: dict = {}
+            if orm_index.commit_quorum_value is not None:
+                cr_ind_opt["commitQuorum"] = orm_index.commit_quorum_value
             await period_check_future(
                 aws=collection.create_indexes(
                     [IndexModel(
@@ -290,7 +293,7 @@ async def init_collection():
                         name=index_name,
                         **options,
                     )],
-                    commitQuorum=orm_index.commit_quorum_value
+                    **cr_ind_opt,
                 ),
                 period=40.0,
                 msg=f"The index '{index_name}' is creating...",
