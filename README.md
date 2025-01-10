@@ -115,6 +115,38 @@ await init_collection()
 if you want to set the 'expireAfterSeconds' only from method 'update_expiration_value', set it to '-1'.
 if you want skip the index changed, call method 'expiration_index_skip' before init_collection.
 
+### Indexes in replica set cluster
+
+The replica set cluster has a specific behavior when creating indexes.
+If one of the nodes in the cluster is not reachable, the index creation will wait for the node to become available.
+See [Index Builds in Replicated Environments](https://www.mongodb.com/docs/manual/core/index-creation/#index-builds-in-replicated-environments).
+Change this behavior by setting the 'commit_quorum' option to 'majority'. See [createIndexes](https://www.mongodb.com/docs/manual/reference/method/db.collection.createIndex/#std-label-createIndex-method-commitQuorum).
+
+Example:
+
+```python
+# import
+
+# Initilize DB before calls db methods
+AMPODatabase(url="mongodb://test")
+
+# Pydantic Model
+class ModelA(CollectionWorker):
+    field1: str
+
+    model_config = ORMConfig(
+        orm_collection="test",
+        orm_indexes=[
+            {
+                "keys": ["field1"],
+                "commit_quorum": "majority",
+            }
+        ]
+    )
+
+await init_collection()
+```
+
 ## Relationships between documents
 
 ### Embeded

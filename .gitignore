@@ -2,5 +2,6 @@
 *.pyc
 dist/*
 .coverage
+tmp/*
 
 TODO.md

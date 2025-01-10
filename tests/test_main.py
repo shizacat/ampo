@@ -1,12 +1,11 @@
 import os
-import asyncio
 import unittest
 import datetime
 from typing import Optional
 
 from bson import ObjectId
 from bson.codec_options import CodecOptions
-from pydantic import ConfigDict, BaseModel
+from pydantic import BaseModel
 
 from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
 

@@ -1,5 +1,8 @@
-from typing import List, Optional
+import asyncio
+import logging
+from typing import List, Optional, Union
 from datetime import datetime, timezone
+from enum import Enum
 
 from pydantic import ConfigDict, BaseModel, Field
 from bson.codec_options import CodecOptions
@@ -11,6 +14,14 @@ cfg_orm_bson_codec_options = "orm_bson_codec_options"
 cfg_orm_lock_record = "orm_lock_record"
 
 
+class commitQuorum(str, Enum):
+    """
+    Quorum for commit
+    """
+    VOTING_MEMBERS = "votingMembers"
+    MAJORITY = "majority"
+
+
 class ORMIndexOptions(BaseModel):
     unique: Optional[bool] = None
     expireAfterSeconds: Optional[int] = None
@@ -20,6 +31,16 @@ class ORMIndex(BaseModel):
     keys: List[str]
     options: Optional[ORMIndexOptions] = None
     skip_initialization: bool = False
+    commit_quorum: Union[commitQuorum, int] = commitQuorum.VOTING_MEMBERS
+
+    @property
+    def commit_quorum_value(self) -> Union[int, str]:
+        """
+        Return value of commit quorum
+        """
+        if isinstance(self.commit_quorum, int):
+            return self.commit_quorum
+        return self.commit_quorum.value
 
 
 class ORMLockRecord(BaseModel):
@@ -61,3 +82,34 @@ class ORMConfig(ConfigDict):
 def datetime_utcnow_tz() -> datetime:
     """Return datetime utc now with timezone"""
     return datetime.now(tz=timezone.utc)
+
+
+async def period_check_future(
+    aws: asyncio.Future,
+    period: float = 20.0,
+    msg: Optional[str] = None,
+    logger: Optional[logging.Logger] = None
+):
+    """
+    Periodic check awaitables
+
+    Args:
+        aws - awaitable
+        period - Period of checking, in seconds
+        msg - Message for logger
+        logger - Logger
+    """
+    # configure logger
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    if msg is None:
+        msg = f"Periodic check, running '{aws}' ..."
+
+    while True:
+        try:
+            await asyncio.wait([aws], timeout=period)
+        except asyncio.TimeoutError:
+            pass
+        if aws.done():
+            break
+        logger.info(msg)
