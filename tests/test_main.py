@@ -145,6 +145,18 @@ class Main(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValidationError):
             a.field1 = "test12345"
 
+    async def test_collectin_04(self):
+        """Check default value in model field"""
+        class A(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+            )
+
+            field1: str = Field(123)
+
+        with self.assertRaises(ValidationError):
+            A()
+
     async def test_indexes_01(self):
         """
         Simple. One key. Wihtout options

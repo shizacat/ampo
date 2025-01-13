@@ -29,6 +29,7 @@ class CollectionWorker(
 
     # Config default model, from metaclass
     validate_assignment=True,
+    validate_default=True,
 ):
     """
     Base class for working with collections as pydatnic models
