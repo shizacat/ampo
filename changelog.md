@@ -10,6 +10,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Added to index new option - 'commit_quorum'. See [docs](https://www.mongodb.com/docs/manual/reference/command/createIndexes/#std-label-createIndexes-cmd-commitQuorum).
 - Added periodic checking to the method create indexes.
 - Update method 'get_all' to support additional options. Options: filter, sort, limit, skip.
+- Add property 'id' to WorkerCollection.
 
 
 ## [0.2.7] - 2024-07-10

@@ -202,6 +202,19 @@ class CollectionWorker(BaseModel):
             return
         raise ValueError(f"The index by '{field}' not found")
 
+    # __ Properties ___
+
+    @property
+    def id(self) -> Optional[str]:
+        """
+        Return id of object
+        """
+        if self._id is None:
+            return
+        return str(self._id)
+
+    # ___ Private methods ___
+
     @classmethod
     def _create_obj(cls, **kwargs):
         """
