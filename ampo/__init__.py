@@ -4,9 +4,6 @@ from .utils import ORMConfig
 
 __version__ = "0.0.0"
 
-# check
-a = 2 + 1
-
 all = [
     AMPODatabase,
     CollectionWorker,
