@@ -9,7 +9,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 - Added to index new option - 'commit_quorum'. See [docs](https://www.mongodb.com/docs/manual/reference/command/createIndexes/#std-label-createIndexes-cmd-commitQuorum).
 - Added periodic checking to the method create indexes.
-- Update method 'get_all' to support additional options. Options: filter, sort, limit, skip.
+- Method 'get_all' don't compatible with previous versions! Update method 'get_all' to support additional options. Options: filter, sort, limit, skip.
 - Add property 'id' to WorkerCollection.
 - Revalidate fields is enabled every time they are updated. The 'validate_assignment' parameter is set to True.
 
