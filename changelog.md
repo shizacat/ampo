@@ -11,6 +11,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Added periodic checking to the method create indexes.
 - Update method 'get_all' to support additional options. Options: filter, sort, limit, skip.
 - Add property 'id' to WorkerCollection.
+- Revalidate fields is enabled every time they are updated. The 'validate_assignment' parameter is set to True.
 
 
 ## [0.2.7] - 2024-07-10

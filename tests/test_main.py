@@ -5,7 +5,7 @@ from typing import Optional
 
 from bson import ObjectId
 from bson.codec_options import CodecOptions
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
 from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
 
@@ -124,6 +124,26 @@ class Main(unittest.IsolatedAsyncioTestCase):
         d = await A.get()
         self.assertIsInstance(d, A)
         self.assertEqual(d.field1, a.field1)
+
+    async def test_collectin_03(self):
+        """Check revalidate field after create object"""
+        class A(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test",
+                # validate_assignment=False,
+            )
+
+            field1: str = Field(max_length=5)
+
+        # Is ok
+        A(field1="test")
+        # Is not ok
+        with self.assertRaises(ValidationError):
+            A(field1="test12345")
+        # Change field after create object
+        a = A(field1="test")
+        with self.assertRaises(ValidationError):
+            a.field1 = "test12345"
 
     async def test_indexes_01(self):
         """

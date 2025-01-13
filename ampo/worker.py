@@ -24,7 +24,12 @@ from .log import logger
 T = TypeVar('T', bound='CollectionWorker')
 
 
-class CollectionWorker(BaseModel):
+class CollectionWorker(
+    BaseModel,
+
+    # Config default model, from metaclass
+    validate_assignment=True,
+):
     """
     Base class for working with collections as pydatnic models
     """
