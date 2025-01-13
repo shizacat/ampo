@@ -38,6 +38,43 @@ await inst_a.save()
 inst_a = await ModelA.get(field1="test")
 ```
 
+## Get all objects
+
+Support additional options for this method. See [find()](https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.find).
+
+Example:
+```python
+from ampo import CollectionWorker, AMPODatabase, ORMConfig, init_collection
+
+# Initilize DB before calls db methods
+AMPODatabase(url="mongodb://test")
+
+# Pydantic Model
+class ModelA(CollectionWorker):
+    field1: str
+    field2: int
+    
+    model_config = ORMConfig(
+        orm_collection="test"
+    )
+
+await init_collection()
+
+inst_a = ModelA("test", 123)
+await inst_a.save()
+
+# Get all objects
+insts = await ModelA.get_all()
+
+# Get all objects, by filter, and addional options
+insts = await ModelA.get_all(
+    filter={"field1": "test"},
+    sort=[("field2", 1)],
+    limit=10,
+    skip=0
+)
+```
+
 ## Id
 
 For search by 'id' usages in filter '_id' or 'id' name.

@@ -79,9 +79,21 @@ class Main(unittest.IsolatedAsyncioTestCase):
         d = await A.get(_id=str(object_id))
         self.assertEqual(d._id, object_id)
 
-        # Get all
+        # Get all, default
         d = await A.get_all()
         self.assertEqual(len(d), 2)
+
+        # Get all, filter
+        d = await A.get_all(filter={"field1": "test01"})
+        self.assertEqual(len(d), 1)
+
+        # Get all, filter and sort
+        d = await A.get_all(filter={"field1": "test01"}, sort=[("field1", -1)])
+        self.assertEqual(len(d), 1)
+
+        # Get all, limit and skip
+        d = await A.get_all(filter={"field1": "test01"}, limit=2, skip=1)
+        self.assertEqual(len(d), 0)
 
         # Delete
         d = await A.get(_id=object_id)
