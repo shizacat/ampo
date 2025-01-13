@@ -52,6 +52,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         # Create instence
         a = A(field1="test")
         self.assertIsNone(a._id)
+        self.assertIsNone(a.id)
 
         # Create instence, second
         await A(field1="test01").save()
@@ -60,6 +61,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await a.save()
         object_id = a._id
         self.assertIsInstance(object_id, ObjectId)
+        self.assertIsInstance(a.id, str)
 
         # update field
         a.field1 = "check"
