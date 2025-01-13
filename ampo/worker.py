@@ -61,23 +61,35 @@ class CollectionWorker(BaseModel):
         Get one object from database
         """
         collection = cls._get_collection()
-        kwargs = CollectionWorker._prepea_filter_get(**kwargs)
 
-        # get
-        data = await collection.find_one(kwargs)
+        data = await collection.find_one(
+            filter=CollectionWorker._prepea_filter_get(kwargs)
+        )
         if data is None:
             return
         return cls._create_obj(**data)
 
     @classmethod
-    async def get_all(cls: Type[T], **kwargs) -> List[T]:
+    async def get_all(
+        cls: Type[T],
+        filter: Optional[dict] = None,
+        **kwargs
+    ) -> List[T]:
         """
-        Search all object by filter
+        Search all object by filter.
+
+        Parameters analogous from the library pymongo:
+        https://pymongo.readthedocs.io/en/4.9/api/pymongo/collection.html#pymongo.collection.Collection.find
+
+        Args:
+            filter (dict): filter for search
         """
         collection = cls._get_collection()
-        kwargs = CollectionWorker._prepea_filter_get(**kwargs)
 
-        data = await collection.find(kwargs).to_list(None)
+        data = await collection.find(
+            filter=CollectionWorker._prepea_filter_get(filter),
+            **kwargs
+        ).to_list(None)
         return [cls._create_obj(**d) for d in data]
 
     async def delete(self):
@@ -93,7 +105,7 @@ class CollectionWorker(BaseModel):
     async def count(cls: Type[T], **kwargs) -> int:
         """Return count of objects"""
         return await cls._get_collection().count_documents(
-            CollectionWorker._prepea_filter_get(**kwargs))
+            CollectionWorker._prepea_filter_get(kwargs))
 
     @classmethod
     async def get_and_lock(cls: Type[T], **kwargs: dict) -> Optional[T]:
@@ -103,7 +115,7 @@ class CollectionWorker(BaseModel):
         l_dt_start = datetime_utcnow_tz()
         kwargs.update({cfg_lock_record.lock_field: False})
         data: Optional[dict] = await cls._get_collection().find_one_and_update(
-            filter=CollectionWorker._prepea_filter_get(**kwargs),
+            filter=CollectionWorker._prepea_filter_get(kwargs),
             update={
                 "$set": {
                     cfg_lock_record.lock_field: True,
@@ -129,7 +141,7 @@ class CollectionWorker(BaseModel):
 
         # update document
         await self._get_collection().update_one(
-            filter=CollectionWorker._prepea_filter_get(_id=self._id),
+            filter=CollectionWorker._prepea_filter_get({"_id": self._id}),
             update={
                 "$set": {
                     cfg_lock_record.lock_field: getattr(
@@ -220,17 +232,23 @@ class CollectionWorker(BaseModel):
         return ORMLockRecord(**cfg_lock_record)
 
     @staticmethod
-    def _prepea_filter_get(**kwargs) -> dict:
+    def _prepea_filter_get(filter: Optional[dict] = None) -> Optional[dict]:
         """
-        Prepea filter data for methods 'get'
+        Prepea filter data for methods 'find<*>'
+
+        - Convert field 'id' to '_id'
+        - Convert type of field '_id' str to ObjectId
         """
-        # check id
-        if "id" in kwargs:
-            kwargs["_id"] = kwargs.pop("id")
-        if "_id" in kwargs:
-            if isinstance(kwargs["_id"], str):
-                kwargs["_id"] = ObjectId(kwargs["_id"])
-        return kwargs
+        if filter is None:
+            return
+
+        # Check id
+        if "id" in filter:
+            filter["_id"] = filter.pop("id")
+        if "_id" in filter:
+            if isinstance(filter["_id"], str):
+                filter["_id"] = ObjectId(filter["_id"])
+        return filter
 
 
 async def init_collection():
