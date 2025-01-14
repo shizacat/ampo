@@ -13,6 +13,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Add property 'id' to WorkerCollection.
 - Revalidate fields is enabled every time they are updated. The 'validate_assignment' parameter is set to True.
 - The default value of the field is now validated. The 'validate_default' parameter is set to True.
+- Added the new method 'get_lock_wait_context'.
 
 
 ## [0.2.7] - 2024-07-10

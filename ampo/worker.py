@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Optional, TypeVar, Type, List, AsyncIterator
 
@@ -114,6 +115,11 @@ class CollectionWorker(
             CollectionWorker._prepea_filter_get(kwargs))
 
     @classmethod
+    async def exists(cls: Type[T], **kwargs) -> bool:
+        """Return True if exists object"""
+        return await cls.count(**kwargs) > 0
+
+    @classmethod
     async def get_and_lock(cls: Type[T], **kwargs: dict) -> Optional[T]:
         """Get and lock"""
         cfg_lock_record = cls._get_cfg_lock_record()
@@ -163,6 +169,61 @@ class CollectionWorker(
     ) -> AsyncIterator[T]:
         """Get and lock context"""
         obj = await cls.get_and_lock(**kwargs)
+        try:
+            yield obj
+        finally:
+            if obj is not None:
+                await obj.reset_lock()
+
+    @classmethod
+    @asynccontextmanager
+    async def get_lock_wait_context(
+        cls: Type[T],
+        filter: dict,
+        timeout: float = 5
+    ):
+        """
+        Get object if it is not locked, otherwise wait until it is unlocked
+
+        Work without transaction.
+
+        Args:
+            filter - filter for search the object
+            timeout - timeout in seconds, 0 wait forever
+
+        Raises:
+            ValueError
+            asyncio.TimeoutError
+        """
+        loop = asyncio.get_running_loop()
+
+        int_up = 0.5  # check every 0.5 seconds
+        is_try = False
+        time_start = loop.time()
+
+        while True:
+            # Wait
+            if is_try:
+                if (
+                    timeout != 0 and
+                    loop.time() - time_start > timeout
+                ):
+                    raise asyncio.TimeoutError()
+                await asyncio.sleep(int_up)
+            else:
+                is_try = True
+
+            # Check the object is exists
+            obj = await cls.exists(**filter)
+            if not obj:
+                raise ValueError("The object not found")
+
+            obj = await cls.get_and_lock(**filter)
+            if obj is None:
+                continue
+            break
+
+        # The object is got and locked
         try:
             yield obj
         finally:
