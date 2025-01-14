@@ -1,11 +1,14 @@
+import asyncio
+import copy
 from contextlib import asynccontextmanager
+import datetime
 from typing import Optional, TypeVar, Type, List, AsyncIterator
 
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
 from pydantic import BaseModel
-from pymongo import IndexModel
+from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
 from .utils import (
@@ -114,24 +117,80 @@ class CollectionWorker(
             CollectionWorker._prepea_filter_get(kwargs))
 
     @classmethod
+    async def exists(cls: Type[T], **kwargs) -> bool:
+        """Return True if exists object"""
+        return await cls.count(**kwargs) > 0
+
+    @classmethod
     async def get_and_lock(cls: Type[T], **kwargs: dict) -> Optional[T]:
         """Get and lock"""
         cfg_lock_record = cls._get_cfg_lock_record()
-
         l_dt_start = datetime_utcnow_tz()
-        kwargs.update({cfg_lock_record.lock_field: False})
+
+        # Create filter
+        filter = CollectionWorker._prepea_filter_get(kwargs)
+        if cfg_lock_record.lock_max_period_sec > 0:
+            filter.update({
+                "$or": [
+                    {
+                        cfg_lock_record.lock_field: False
+                    },
+                    {
+                        cfg_lock_record.lock_field: True,
+                        cfg_lock_record.lock_field_time_start: {
+                            "$lt": l_dt_start - datetime.timedelta(
+                                seconds=cfg_lock_record.lock_max_period_sec
+                            )
+                        }
+                    }
+                ]
+            })
+        else:
+            filter.update({cfg_lock_record.lock_field: False})
+
+        # Get
         data: Optional[dict] = await cls._get_collection().find_one_and_update(
-            filter=CollectionWorker._prepea_filter_get(kwargs),
+            filter=filter,
             update={
                 "$set": {
                     cfg_lock_record.lock_field: True,
                     cfg_lock_record.lock_field_time_start: l_dt_start
                 }
             },
-            return_document=True,  # return updated document
+            return_document=(
+                ReturnDocument.BEFORE
+                if cfg_lock_record.lock_max_period_sec > 0
+                else ReturnDocument.AFTER
+            )
         )
         if data is None:
             return
+
+        # Check
+        if cfg_lock_record.lock_max_period_sec > 0:
+            data_obj = cls._create_obj(**data)
+            data_l_dt_start: datetime.datetime = getattr(
+                data_obj, cfg_lock_record.lock_field_time_start
+            )
+            if data_l_dt_start is not None:
+                # Ensure TZ is UTC
+                data_l_dt_start = data_l_dt_start.replace(
+                    tzinfo=datetime.timezone.utc)
+                if l_dt_start - data_l_dt_start > datetime.timedelta(
+                    seconds=cfg_lock_record.lock_max_period_sec
+                ):
+                    logger.warning(
+                        "Lock is expired. "
+                        f"ObjectID: {data_obj.id}. "
+                        f"Lock time start: {data_l_dt_start}."
+                    )
+            # Get original data
+            data = await cls._get_collection().find_one(
+                filter=CollectionWorker._prepea_filter_get(kwargs))
+            if data is None:
+                raise RuntimeError("Object not found")
+
+        # Create object
         return cls._create_obj(**data)
 
     async def reset_lock(self):
@@ -163,6 +222,61 @@ class CollectionWorker(
     ) -> AsyncIterator[T]:
         """Get and lock context"""
         obj = await cls.get_and_lock(**kwargs)
+        try:
+            yield obj
+        finally:
+            if obj is not None:
+                await obj.reset_lock()
+
+    @classmethod
+    @asynccontextmanager
+    async def get_lock_wait_context(
+        cls: Type[T],
+        filter: dict,
+        timeout: float = 5
+    ):
+        """
+        Get object if it is not locked, otherwise wait until it is unlocked
+
+        Work without transaction.
+
+        Args:
+            filter - filter for search the object
+            timeout - timeout in seconds, 0 wait forever
+
+        Raises:
+            ValueError
+            asyncio.TimeoutError
+        """
+        loop = asyncio.get_running_loop()
+
+        int_up = 0.5  # check every 0.5 seconds
+        is_try = False
+        time_start = loop.time()
+
+        while True:
+            # Wait
+            if is_try:
+                if (
+                    timeout != 0 and
+                    loop.time() - time_start > timeout
+                ):
+                    raise asyncio.TimeoutError()
+                await asyncio.sleep(int_up)
+            else:
+                is_try = True
+
+            # Check the object is exists
+            obj = await cls.exists(**filter)
+            if not obj:
+                raise ValueError("The object not found")
+
+            obj = await cls.get_and_lock(**filter)
+            if obj is None:
+                continue
+            break
+
+        # The object is got and locked
         try:
             yield obj
         finally:
@@ -261,13 +375,15 @@ class CollectionWorker(
         if filter is None:
             return
 
+        result = copy.deepcopy(filter)
+
         # Check id
-        if "id" in filter:
-            filter["_id"] = filter.pop("id")
-        if "_id" in filter:
-            if isinstance(filter["_id"], str):
-                filter["_id"] = ObjectId(filter["_id"])
-        return filter
+        if "id" in result:
+            result["_id"] = result.pop("id")
+        if "_id" in result:
+            if isinstance(result["_id"], str):
+                result["_id"] = ObjectId(result["_id"])
+        return result
 
 
 async def init_collection():
