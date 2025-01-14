@@ -247,7 +247,21 @@ await inst_a.reset_lock()
 async with ModelA.get_and_lock_context(field1="test") as inst_a:
     pass
     # process
+
+# as context, version II
+# timeout on wait
+try:
+  async with ModelA.get_lock_wait_context(
+      filter={"field1": "test"}, timeout=10
+  ) as inst_a:
+      pass
+except (TimeoutError, ValueError) as e:
+    print("Error:", e)
 ```
+
+Mehanism reset lock.
+If lock exist more than time, set 'lock_max_period_sec', lock will be reset.
+Default value is 15 minutes.
 
 # Development
 
