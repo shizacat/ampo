@@ -7,13 +7,19 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+### Added
+
 - Added to index new option - 'commit_quorum'. See [docs](https://www.mongodb.com/docs/manual/reference/command/createIndexes/#std-label-createIndexes-cmd-commitQuorum).
 - Added periodic checking to the method create indexes.
-- Method 'get_all' don't compatible with previous versions! Update method 'get_all' to support additional options. Options: filter, sort, limit, skip.
 - Add property 'id' to WorkerCollection.
+- Added the new method 'get_lock_wait_context'.
+
+### Changed
+
+- Method 'get_all' don't compatible with previous versions! Update method 'get_all' to support additional options. Options: filter, sort, limit, skip.
 - Revalidate fields is enabled every time they are updated. The 'validate_assignment' parameter is set to True.
 - The default value of the field is now validated. The 'validate_default' parameter is set to True.
-- Added the new method 'get_lock_wait_context'.
+- Change the method 'get_and_lock', now it reset lock after 'dead time'. The 'dead time' is set in the 'lock_max_period_sec'.
 
 
 ## [0.2.7] - 2024-07-10

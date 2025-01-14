@@ -63,6 +63,14 @@ class ORMLockRecord(BaseModel):
             "Type: datetime"
         )
     )
+    lock_max_period_sec: int = Field(
+        15 * 60,
+        description=(
+            "The maximum period of time for which the lock will be acquired. "
+            "If '0' - the lock will be acquired until the end of the process. "
+            "Type: int"
+        )
+    )
 
 
 class ORMConfig(ConfigDict):
