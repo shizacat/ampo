@@ -179,6 +179,55 @@ class Main(unittest.IsolatedAsyncioTestCase):
         ):
             self.assertTrue(t.done())
 
+    async def test_get_lock_wait_context_05(self):
+        """
+        Raise exception when object is locked.
+        """
+
+        # Add
+        a = A(field1="test")
+        await a.save()
+
+        try:
+            async with A.get_lock_wait_context(field1="test"):
+                # check lock is set
+                a = await A.get(field1="test")
+                self.assertTrue(a.lfield)
+
+                raise RuntimeError("Object is locked.")
+        except Exception:
+            pass
+
+        # check lock is removed
+        a = await A.get(field1="test")
+        self.assertFalse(a.lfield)
+
+    async def test_get_lock_wait_context_06(self):
+        """
+        Raise exception in corotine when object is locked
+        """
+
+        # Add
+        a = A(field1="test")
+        await a.save()
+
+        async def test():
+            raise RuntimeError("Object is locked.")
+
+        try:
+            async with A.get_lock_wait_context(field1="test"):
+                # check lock is set
+                a = await A.get(field1="test")
+                self.assertTrue(a.lfield)
+
+                await test()
+        except Exception:
+            pass
+
+        # check lock is removed
+        a = await A.get(field1="test")
+        self.assertFalse(a.lfield)
+
     # get_and_lock
 
     async def test_get_and_lock_01(self):
