@@ -439,10 +439,7 @@ class CollectionWorker(
         """
         result = []
         for fname, ftype in cls.__annotations__.items():
-            if (
-                isinstance(ftype, typing._GenericAlias) and
-                ftype.__name__ == RFManyToMany.__name__
-            ):
+            if get_origin(ftype) == RFManyToMany:
                 result.append((fname, ftype))
         return result
 
