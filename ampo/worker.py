@@ -1,13 +1,17 @@
 import asyncio
 import copy
+import typing
 from contextlib import asynccontextmanager
 import datetime
-from typing import Optional, TypeVar, Type, List, AsyncIterator
+from typing import Optional, TypeVar, Type, List, AsyncIterator, Any
+from typing_extensions import Annotated, TypeAliasType
 
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, GetCoreSchemaHandler, create_model
+from pydantic_core import core_schema
+from pydantic._internal import _model_construction
 from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
@@ -25,6 +29,36 @@ from .log import logger
 
 
 T = TypeVar('T', bound='CollectionWorker')
+# RFManyToMany = Annotated[List[T], Field(default_factory=list)]
+RFManyToMany = TypeAliasType(
+    "RFManyToMany", Annotated[List[T], Field(default_factory=list)])
+
+
+class RelatedFieldsMeta(_model_construction.ModelMetaclass):
+    """
+    The metaclass for related fields
+    """
+
+    def __new__(cls, name, bases, attrs, **kwargs):
+        if "__annotations__" not in attrs.keys():
+            return super().__new__(cls, name, bases, attrs, **kwargs)
+
+        # Find all fields with type RFManyToMany
+        mtm_fields = []
+        for fname, ftype in attrs["__annotations__"].items():
+            if (
+                isinstance(ftype, typing._GenericAlias) and
+                ftype.__name__ == RFManyToMany.__name__
+            ):
+                mtm_fields.append(str(fname))
+        # Add new fields
+        for fname in mtm_fields:
+            fsuffix = "_ids"
+            field_name = f"{fname}{fsuffix}"
+            attrs["__annotations__"][field_name] = List[str]
+            attrs[field_name] = Field(default_factory=list)
+
+        return super().__new__(cls, name, bases, attrs, **kwargs)
 
 
 class CollectionWorker(
@@ -33,6 +67,8 @@ class CollectionWorker(
     # Config default model, from metaclass
     validate_assignment=True,
     validate_default=True,
+
+    metaclass=RelatedFieldsMeta,
 ):
     """
     Base class for working with collections as pydatnic models
