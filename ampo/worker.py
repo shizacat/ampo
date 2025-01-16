@@ -3,7 +3,7 @@ import copy
 import typing
 from contextlib import asynccontextmanager
 import datetime
-from typing import Optional, TypeVar, Type, List, AsyncIterator, Any
+from typing import Optional, TypeVar, Type, List, Tuple, AsyncIterator, Any, get_origin, get_args
 from typing_extensions import Annotated, TypeAliasType
 
 import bson.son
@@ -34,31 +34,31 @@ RFManyToMany = TypeAliasType(
     "RFManyToMany", Annotated[List[T], Field(default_factory=list)])
 
 
-class RelatedFieldsMeta(_model_construction.ModelMetaclass):
-    """
-    The metaclass for related fields
-    """
+# class RelatedFieldsMeta(_model_construction.ModelMetaclass):
+#     """
+#     The metaclass for related fields
+#     """
 
-    def __new__(cls, name, bases, attrs, **kwargs):
-        if "__annotations__" not in attrs.keys():
-            return super().__new__(cls, name, bases, attrs, **kwargs)
+#     def __new__(cls, name, bases, attrs, **kwargs):
+#         if "__annotations__" not in attrs.keys():
+#             return super().__new__(cls, name, bases, attrs, **kwargs)
 
-        # Find all fields with type RFManyToMany
-        mtm_fields = []
-        for fname, ftype in attrs["__annotations__"].items():
-            if (
-                isinstance(ftype, typing._GenericAlias) and
-                ftype.__name__ == RFManyToMany.__name__
-            ):
-                mtm_fields.append(str(fname))
-        # Add new fields
-        for fname in mtm_fields:
-            fsuffix = "_ids"
-            field_name = f"{fname}{fsuffix}"
-            attrs["__annotations__"][field_name] = List[str]
-            attrs[field_name] = Field(default_factory=list)
+#         # Find all fields with type RFManyToMany
+#         mtm_fields = []
+#         for fname, ftype in attrs["__annotations__"].items():
+#             if (
+#                 isinstance(ftype, typing._GenericAlias) and
+#                 ftype.__name__ == RFManyToMany.__name__
+#             ):
+#                 mtm_fields.append(str(fname))
+#         # Add new fields
+#         for fname in mtm_fields:
+#             fsuffix = "_ids"
+#             field_name = f"{fname}{fsuffix}"
+#             attrs["__annotations__"][field_name] = List[str]
+#             attrs[field_name] = Field(default_factory=list)
 
-        return super().__new__(cls, name, bases, attrs, **kwargs)
+#         return super().__new__(cls, name, bases, attrs, **kwargs)
 
 
 class CollectionWorker(
@@ -68,7 +68,7 @@ class CollectionWorker(
     validate_assignment=True,
     validate_default=True,
 
-    metaclass=RelatedFieldsMeta,
+    # metaclass=RelatedFieldsMeta,
 ):
     """
     Base class for working with collections as pydatnic models
@@ -112,6 +112,25 @@ class CollectionWorker(
         )
         if data is None:
             return
+        data: dict
+
+        # MtM fields
+        for fname, ftype in cls._mtm_get_fields():
+            mtm_field_name = cls._mtm_field_name(fname)
+            mtm_class = get_args(ftype)[0]
+
+            mtm_data = data.pop(mtm_field_name, [])
+            data[fname] = []
+
+            for mtm_id in mtm_data:
+                mtm_obj = await mtm_class.get(id=mtm_id)
+                if mtm_obj is None:
+                    raise ValueError(
+                        f"The object with id '{mtm_id}' not found, "
+                        f"field '{fname}'"
+                    )
+                data[fname].append(mtm_obj)
+
         return cls._create_obj(**data)
 
     @classmethod
@@ -358,6 +377,48 @@ class CollectionWorker(
             return
         raise ValueError(f"The index by '{field}' not found")
 
+    def model_dump(
+        self,
+        *args,
+        as_origin: bool = False,
+        skip_save_check: bool = False,
+        **kwargs
+    ) -> dict:
+        """
+        Return dict with data for save in database
+
+        Args:
+            as_origin - return dict with original data
+            skip_save_check - exclude the mtm fields that are not saved
+        """
+        if as_origin:
+            return super().model_dump(*args, **kwargs)
+
+        if "exclude" not in kwargs:
+            kwargs["exclude"] = []
+
+        # MtM exclude
+        kwargs["exclude"].extend([x for x, _ in self._mtm_get_fields()])
+
+        data = super().model_dump(*args, **kwargs)
+
+        # MtM add fields
+        for fname, ftype in self._mtm_get_fields():
+            mtm_field_name = self._mtm_field_name(fname)
+            data[mtm_field_name] = []
+            for mtm_obj in getattr(self, fname):
+                assert isinstance(mtm_obj, CollectionWorker)
+                if mtm_obj._id is None:
+                    if skip_save_check:
+                        continue
+                    raise ValueError(
+                        f"The one or more objects in the field '{fname}' "
+                        "is not saved"
+                    )
+                data[mtm_field_name].append(mtm_obj._id)
+
+        return data
+
     # __ Properties ___
 
     @property
@@ -370,6 +431,29 @@ class CollectionWorker(
         return str(self._id)
 
     # ___ Private methods ___
+
+    @classmethod
+    def _mtm_get_fields(cls) -> List[Tuple[str, str]]:
+        """
+        Return list of fields for many-to-many relations
+        """
+        result = []
+        for fname, ftype in cls.__annotations__.items():
+            if (
+                isinstance(ftype, typing._GenericAlias) and
+                ftype.__name__ == RFManyToMany.__name__
+            ):
+                result.append((fname, ftype))
+        return result
+
+    @classmethod
+    def _mtm_field_name(cls, mtm_filed_name: str) -> str:
+        """
+        Generate name of field for many-to-many relations
+        which will be used for save in database
+        """
+        mtm_suffix = "_ids"
+        return f"{mtm_filed_name}{mtm_suffix}"
 
     @classmethod
     def _create_obj(cls, **kwargs):
