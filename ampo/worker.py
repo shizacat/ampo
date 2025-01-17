@@ -32,7 +32,7 @@ from .log import logger
 T = TypeVar('T', bound='CollectionWorker')
 
 # For Python 3.12 uses TypeAlias
-if sys.version_info >= (3, 12):
+if sys.version_info >= (3, 9):
     RFManyToMany = Annotated[
         List[T],
         Field(default_factory=list, title="RFManyToMany")
@@ -101,7 +101,7 @@ class CollectionWorker(
             mtm_field_name = cls._mtm_field_name(fname)
             mtm_class = get_args(ftype)[0]
             # Get Generic type (List[<T>])
-            if sys.version_info >= (3, 12):
+            if sys.version_info >= (3, 9):
                 mtm_class = get_args(mtm_class)[0]
 
             mtm_data = data.pop(mtm_field_name, [])
@@ -427,7 +427,7 @@ class CollectionWorker(
         """
         result = []
         for fname, ftype in cls.__annotations__.items():
-            if sys.version_info <= (3, 10):
+            if sys.version_info <= (3, 9):
                 if get_origin(ftype) == RFManyToMany:
                     result.append((fname, ftype))
             else:
