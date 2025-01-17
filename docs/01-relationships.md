@@ -5,7 +5,13 @@
 Example:
 
 ```python
-from ampo import CollectionWorker, AMPODatabase, ORMConfig, init_collection
+from ampo import (
+    CollectionWorker,
+    AMPODatabase,
+    ORMConfig,
+    init_collection,
+    RFManyToMany
+)
 
 # Initilize DB before calls db methods
 AMPODatabase(url="mongodb://test")
