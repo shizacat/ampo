@@ -2,7 +2,10 @@
 
 Features:
 - Asynchronous
+- Many to many relationships
 - Support MongoDB from 4.2
+- Python 3.8+
+
 
 # Usage
 
