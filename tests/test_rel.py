@@ -147,3 +147,21 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(a1.datas[0].data, "data-test")
         self.assertEqual(len(a1.datas[0].names), 1)
         self.assertEqual(a1.datas[0].names[0].name, "name-test")
+
+    async def test_relation_mtm_04(self):
+        """
+        Success get through the method 'get_all'
+        """
+        await init_collection()
+
+        # Create and fill db
+        r = R1(name="rrr-test")
+        await r.save()
+        a = A(field1="test", names=[r])
+        await a.save()
+
+        # Get all
+        a_all = await A.get_all()
+        self.assertEqual(len(a_all), 1)
+        self.assertEqual(len(a_all[0].names), 1)
+        self.assertEqual(a_all[0].names[0].name, "rrr-test")

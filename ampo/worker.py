@@ -94,29 +94,8 @@ class CollectionWorker(
         )
         if data is None:
             return
-        data: dict
-
-        # MtM fields
-        for fname, ftype in cls._mtm_get_fields():
-            mtm_field_name = cls._mtm_field_name(fname)
-            mtm_class = get_args(ftype)[0]
-            # Get Generic type (List[<T>])
-            if sys.version_info >= (3, 9):
-                mtm_class = get_args(mtm_class)[0]
-
-            mtm_data = data.pop(mtm_field_name, [])
-            data[fname] = []
-
-            for mtm_id in mtm_data:
-                mtm_obj = await mtm_class.get(id=mtm_id)
-                if mtm_obj is None:
-                    raise ValueError(
-                        f"The object with id '{mtm_id}' not found, "
-                        f"field '{fname}'"
-                    )
-                data[fname].append(mtm_obj)
-
-        return cls._create_obj(**data)
+        await cls._rel_get_data(data)
+        return cls._create_obj(data)
 
     @classmethod
     async def get_all(
@@ -133,13 +112,18 @@ class CollectionWorker(
         Args:
             filter (dict): filter for search
         """
+        result = []
+
         collection = cls._get_collection()
 
         data = await collection.find(
             filter=CollectionWorker._prepea_filter_get(filter),
             **kwargs
         ).to_list(None)
-        return [cls._create_obj(**d) for d in data]
+        for d in data:
+            await cls._rel_get_data(d)
+            result.append(cls._create_obj(d))
+        return result
 
     async def delete(self):
         """
@@ -208,7 +192,7 @@ class CollectionWorker(
 
         # Check
         if cfg_lock_record.lock_max_period_sec > 0:
-            data_obj = cls._create_obj(**data)
+            data_obj = cls._create_obj(data)
             data_l_dt_start: datetime.datetime = getattr(
                 data_obj, cfg_lock_record.lock_field_time_start
             )
@@ -231,7 +215,8 @@ class CollectionWorker(
                 raise RuntimeError("Object not found")
 
         # Create object
-        return cls._create_obj(**data)
+        await cls._rel_get_data(data)
+        return cls._create_obj(data)
 
     async def reset_lock(self):
         """Reset lock"""
@@ -448,14 +433,42 @@ class CollectionWorker(
         return f"{mtm_filed_name}{mtm_suffix}"
 
     @classmethod
-    def _create_obj(cls, **kwargs):
+    async def _rel_get_data(cls, data: dict):
+        """
+        Added to the data relation fields (mtm)
+
+        Args:
+            data - dict with data of parent, from database
+        """
+        # MtM fields
+        for fname, ftype in cls._mtm_get_fields():
+            mtm_field_name = cls._mtm_field_name(fname)
+            mtm_class = get_args(ftype)[0]
+            # Get Generic type (List[<T>])
+            if sys.version_info >= (3, 9):
+                mtm_class = get_args(mtm_class)[0]
+
+            mtm_data = data.pop(mtm_field_name, [])
+            data[fname] = []
+
+            for mtm_id in mtm_data:
+                mtm_obj = await mtm_class.get(id=mtm_id)
+                if mtm_obj is None:
+                    raise ValueError(
+                        f"The object with id '{mtm_id}' not found, "
+                        f"field '{fname}'"
+                    )
+                data[fname].append(mtm_obj)
+
+    @classmethod
+    def _create_obj(cls, data: dict) -> "CollectionWorker":
         """
         Create object from database data
         """
-        object_id = kwargs.pop("_id", None)
+        object_id = data.pop("_id", None)
         if object_id is None:
             raise ValueError("Arguments don't have _id")
-        result = cls(**kwargs)
+        result = cls(**data)
         result._id = object_id
         return result
 
