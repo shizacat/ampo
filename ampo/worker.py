@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 import datetime
 from typing import Optional, TypeVar, Type, List, Tuple, AsyncIterator, Any, get_origin, get_args, Generic
 from typing_extensions import Annotated, TypeAliasType
-import sys
 
 import bson.son
 from bson import ObjectId
@@ -31,18 +30,20 @@ from .log import logger
 
 T = TypeVar('T', bound='CollectionWorker')
 
-# For Python 3.12 uses TypeAlias
-if sys.version_info >= (3, 9):
-    RFManyToMany = Annotated[
-        List[T],
-        Field(default_factory=list, title="RFManyToMany")
-    ]
-else:
-    RFManyToMany = TypeAliasType(
-        "RFManyToMany",
-        Annotated[List[T], Field(default_factory=list)],
-        # type_params=(T,),
-    )
+# Uses hack - 'title' for detect type
+RFManyToMany = Annotated[
+    List[T],
+    Field(default_factory=list, title="RFManyToMany")
+]
+# Through TypeAliasType more simple than TypeAlias,
+# but for Python 3.12 TypeAliasType is not subscriptable
+# Example:
+#
+# RFManyToMany = TypeAliasType(
+#     "RFManyToMany",
+#     Annotated[List[T], Field(default_factory=list)],
+#     # type_params=(T,),
+# )
 
 
 class CollectionWorker(
@@ -100,9 +101,7 @@ class CollectionWorker(
         for fname, ftype in cls._mtm_get_fields():
             mtm_field_name = cls._mtm_field_name(fname)
             mtm_class = get_args(ftype)[0]
-            # Get Generic type (List[<T>])
-            if sys.version_info >= (3, 9):
-                mtm_class = get_args(mtm_class)[0]
+            mtm_class = get_args(mtm_class)[0]
 
             mtm_data = data.pop(mtm_field_name, [])
             data[fname] = []
@@ -427,15 +426,11 @@ class CollectionWorker(
         """
         result = []
         for fname, ftype in cls.__annotations__.items():
-            if sys.version_info <= (3, 9):
-                if get_origin(ftype) == RFManyToMany:
-                    result.append((fname, ftype))
-            else:
-                if (
-                    get_origin(ftype) == typing.Annotated and
-                    cls._annotated_get_title(ftype) == RFManyToMany.__metadata__[0].title
-                ):
-                    result.append((fname, ftype))
+            if (
+                get_origin(ftype) == typing.Annotated and
+                cls._annotated_get_title(ftype) == RFManyToMany.__metadata__[0].title
+            ):
+                result.append((fname, ftype))
         return result
 
     @classmethod
