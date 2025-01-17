@@ -18,6 +18,7 @@ class commitQuorum(str, Enum):
     """
     Quorum for commit
     """
+
     VOTING_MEMBERS = "votingMembers"
     MAJORITY = "majority"
 
@@ -51,17 +52,17 @@ class ORMLockRecord(BaseModel):
 
     Field should be add to the model
     """
+
     lock_field: str = Field(
-        ..., description=(
-            "Field by which the lock will be acquired. Type: boolean"
-        )
+        ...,
+        description=("Field by which the lock will be acquired. Type: boolean"),
     )
     lock_field_time_start: str = Field(
         ...,
         description=(
             "Field which will be contained the start time of the lock. "
             "Type: datetime"
-        )
+        ),
     )
     lock_max_period_sec: int = Field(
         15 * 60,
@@ -69,7 +70,7 @@ class ORMLockRecord(BaseModel):
             "The maximum period of time for which the lock will be acquired. "
             "If '0' - the lock will be acquired until the end of the process. "
             "Type: int"
-        )
+        ),
     )
 
 
@@ -82,6 +83,7 @@ class ORMConfig(ConfigDict):
     orm_bson_codec_options - This options will apply on the collection
         every time, when the collection is returned
     """
+
     # Name of collection
     orm_collection: str
     orm_indexes: List[ORMIndex]
@@ -98,7 +100,7 @@ async def period_check_future(
     aws: asyncio.Future,
     period: float = 20.0,
     msg: Optional[str] = None,
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
 ):
     """
     Periodic check awaitables

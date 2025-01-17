@@ -3,16 +3,23 @@ import copy
 import typing
 from contextlib import asynccontextmanager
 import datetime
-from typing import Optional, TypeVar, Type, List, Tuple, AsyncIterator, Any, get_origin, get_args, Generic
+from typing import (
+    Optional,
+    TypeVar,
+    Type,
+    List,
+    Tuple,
+    AsyncIterator,
+    get_origin,
+    get_args,
+)
 from typing_extensions import Annotated, TypeAliasType
 import sys
 
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
-from pydantic import BaseModel, Field, GetCoreSchemaHandler, create_model
-from pydantic_core import core_schema
-from pydantic._internal import _model_construction
+from pydantic import BaseModel, Field
 from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
@@ -29,13 +36,12 @@ from .utils import (
 from .log import logger
 
 
-T = TypeVar('T', bound='CollectionWorker')
+T = TypeVar("T", bound="CollectionWorker")
 
 # For Python 3.9+ uses TypeAlias
 if sys.version_info >= (3, 9):
     RFManyToMany = Annotated[
-        List[T],
-        Field(default_factory=list, title="RFManyToMany")
+        List[T], Field(default_factory=list, title="RFManyToMany")
     ]
 else:
     RFManyToMany = TypeAliasType(
@@ -47,7 +53,6 @@ else:
 
 class CollectionWorker(
     BaseModel,
-
     # Config default model, from metaclass
     validate_assignment=True,
     validate_default=True,
@@ -99,9 +104,7 @@ class CollectionWorker(
 
     @classmethod
     async def get_all(
-        cls: Type[T],
-        filter: Optional[dict] = None,
-        **kwargs
+        cls: Type[T], filter: Optional[dict] = None, **kwargs
     ) -> List[T]:
         """
         Search all object by filter.
@@ -117,8 +120,7 @@ class CollectionWorker(
         collection = cls._get_collection()
 
         data = await collection.find(
-            filter=CollectionWorker._prepea_filter_get(filter),
-            **kwargs
+            filter=CollectionWorker._prepea_filter_get(filter), **kwargs
         ).to_list(None)
         for d in data:
             await cls._rel_get_data(d)
@@ -138,7 +140,8 @@ class CollectionWorker(
     async def count(cls: Type[T], **kwargs) -> int:
         """Return count of objects"""
         return await cls._get_collection().count_documents(
-            CollectionWorker._prepea_filter_get(kwargs))
+            CollectionWorker._prepea_filter_get(kwargs)
+        )
 
     @classmethod
     async def exists(cls: Type[T], **kwargs) -> bool:
@@ -154,21 +157,22 @@ class CollectionWorker(
         # Create filter
         filter = CollectionWorker._prepea_filter_get(kwargs)
         if cfg_lock_record.lock_max_period_sec > 0:
-            filter.update({
-                "$or": [
-                    {
-                        cfg_lock_record.lock_field: False
-                    },
-                    {
-                        cfg_lock_record.lock_field: True,
-                        cfg_lock_record.lock_field_time_start: {
-                            "$lt": l_dt_start - datetime.timedelta(
-                                seconds=cfg_lock_record.lock_max_period_sec
-                            )
-                        }
-                    }
-                ]
-            })
+            filter.update(
+                {
+                    "$or": [
+                        {cfg_lock_record.lock_field: False},
+                        {
+                            cfg_lock_record.lock_field: True,
+                            cfg_lock_record.lock_field_time_start: {
+                                "$lt": l_dt_start
+                                - datetime.timedelta(
+                                    seconds=cfg_lock_record.lock_max_period_sec
+                                )
+                            },
+                        },
+                    ]
+                }
+            )
         else:
             filter.update({cfg_lock_record.lock_field: False})
 
@@ -178,14 +182,14 @@ class CollectionWorker(
             update={
                 "$set": {
                     cfg_lock_record.lock_field: True,
-                    cfg_lock_record.lock_field_time_start: l_dt_start
+                    cfg_lock_record.lock_field_time_start: l_dt_start,
                 }
             },
             return_document=(
                 ReturnDocument.BEFORE
                 if cfg_lock_record.lock_max_period_sec > 0
                 else ReturnDocument.AFTER
-            )
+            ),
         )
         if data is None:
             return
@@ -199,7 +203,8 @@ class CollectionWorker(
             if data_l_dt_start is not None:
                 # Ensure TZ is UTC
                 data_l_dt_start = data_l_dt_start.replace(
-                    tzinfo=datetime.timezone.utc)
+                    tzinfo=datetime.timezone.utc
+                )
                 if l_dt_start - data_l_dt_start > datetime.timedelta(
                     seconds=cfg_lock_record.lock_max_period_sec
                 ):
@@ -210,7 +215,8 @@ class CollectionWorker(
                     )
             # Get original data
             data = await cls._get_collection().find_one(
-                filter=CollectionWorker._prepea_filter_get(kwargs))
+                filter=CollectionWorker._prepea_filter_get(kwargs)
+            )
             if data is None:
                 raise RuntimeError("Object not found")
 
@@ -235,9 +241,10 @@ class CollectionWorker(
             update={
                 "$set": {
                     cfg_lock_record.lock_field: getattr(
-                        self, cfg_lock_record.lock_field)
+                        self, cfg_lock_record.lock_field
+                    )
                 }
-            }
+            },
         )
 
     @classmethod
@@ -256,9 +263,7 @@ class CollectionWorker(
     @classmethod
     @asynccontextmanager
     async def get_lock_wait_context(
-        cls: Type[T],
-        filter: dict,
-        timeout: float = 5
+        cls: Type[T], filter: dict, timeout: float = 5
     ):
         """
         Get object if it is not locked, otherwise wait until it is unlocked
@@ -282,10 +287,7 @@ class CollectionWorker(
         while True:
             # Wait
             if is_try:
-                if (
-                    timeout != 0 and
-                    loop.time() - time_start > timeout
-                ):
+                if timeout != 0 and loop.time() - time_start > timeout:
                     raise asyncio.TimeoutError()
                 await asyncio.sleep(int_up)
             else:
@@ -309,9 +311,7 @@ class CollectionWorker(
                 await obj.reset_lock()
 
     @classmethod
-    def expiration_index_update(
-        cls: Type[T], field: str, expire_seconds: int
-    ):
+    def expiration_index_update(cls: Type[T], field: str, expire_seconds: int):
         """Update expire index for collections by field name
 
         Parameters
@@ -352,7 +352,7 @@ class CollectionWorker(
         *args,
         as_origin: bool = False,
         skip_save_check: bool = False,
-        **kwargs
+        **kwargs,
     ) -> dict:
         """
         Return dict with data for save in database
@@ -414,8 +414,9 @@ class CollectionWorker(
         for fname, ftype in cls.__annotations__.items():
             if sys.version_info >= (3, 9):
                 if (
-                    get_origin(ftype) == typing.Annotated and
-                    cls._annotated_get_title(ftype) == RFManyToMany.__metadata__[0].title
+                    get_origin(ftype) == typing.Annotated
+                    and cls._annotated_get_title(ftype)
+                    == RFManyToMany.__metadata__[0].title
                 ):
                     result.append((fname, ftype))
             else:
@@ -474,17 +475,22 @@ class CollectionWorker(
 
     @classmethod
     def _get_collection(cls) -> motor_asyncio.AsyncIOMotorCollection:
-        """ Return collection """
-        return AMPODatabase().get_db().get_collection(
-            cls.model_config[cfg_orm_collection],
-            codec_options=cls.model_config.get(cfg_orm_bson_codec_options)
+        """Return collection"""
+        return (
+            AMPODatabase()
+            .get_db()
+            .get_collection(
+                cls.model_config[cfg_orm_collection],
+                codec_options=cls.model_config.get(cfg_orm_bson_codec_options),
+            )
         )
 
     @classmethod
     def _get_cfg_lock_record(cls) -> ORMLockRecord:
         """Get cfg lock record"""
         cfg_lock_record: Optional[dict] = cls.model_config.get(
-            cfg_orm_lock_record)
+            cfg_orm_lock_record
+        )
         if cfg_lock_record is None:
             raise ValueError("Lock record is not enabled")
         return ORMLockRecord(**cfg_lock_record)
@@ -558,9 +564,13 @@ async def init_collection():
                         continue
                     if index.get("expireAfterSeconds") is None:
                         logger.warning(
-                            "This index has no option expireAfterSeconds")
+                            "This index has no option expireAfterSeconds"
+                        )
                         break
-                    if index.get("expireAfterSeconds") != orm_index.options.expireAfterSeconds:  # noqa: E501
+                    if (
+                        index.get("expireAfterSeconds")
+                        != orm_index.options.expireAfterSeconds
+                    ):  # noqa: E501
                         await collection.drop_index(index_name)
                         logger.debug("The index '%s' was dropped", index_name)
 
@@ -574,11 +584,13 @@ async def init_collection():
                 cr_ind_opt["commitQuorum"] = orm_index.commit_quorum_value
             await period_check_future(
                 aws=collection.create_indexes(
-                    [IndexModel(
-                        keys=orm_index.keys,
-                        name=index_name,
-                        **options,
-                    )],
+                    [
+                        IndexModel(
+                            keys=orm_index.keys,
+                            name=index_name,
+                            **options,
+                        )
+                    ],
                     **cr_ind_opt,
                 ),
                 period=40.0,
