@@ -13,6 +13,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Added periodic checking to the method create indexes.
 - Add property 'id' to WorkerCollection.
 - Added the new method 'get_lock_wait_context'.
+- Added relationship for 'Many to Many' in the model.
 
 ### Changed
 

@@ -1,13 +1,25 @@
 import asyncio
 import copy
+import typing
 from contextlib import asynccontextmanager
 import datetime
-from typing import Optional, TypeVar, Type, List, AsyncIterator
+from typing import (
+    Optional,
+    TypeVar,
+    Type,
+    List,
+    Tuple,
+    AsyncIterator,
+    get_origin,
+    get_args,
+)
+from typing_extensions import Annotated, TypeAliasType
+import sys
 
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
@@ -24,12 +36,23 @@ from .utils import (
 from .log import logger
 
 
-T = TypeVar('T', bound='CollectionWorker')
+T = TypeVar("T", bound="CollectionWorker")
+
+# For Python 3.9+ uses TypeAlias
+if sys.version_info >= (3, 9):
+    RFManyToMany = Annotated[
+        List[T], Field(default_factory=list, title="RFManyToMany")
+    ]
+else:
+    RFManyToMany = TypeAliasType(
+        "RFManyToMany",
+        Annotated[List[T], Field(default_factory=list)],
+        # type_params=(T,),
+    )
 
 
 class CollectionWorker(
     BaseModel,
-
     # Config default model, from metaclass
     validate_assignment=True,
     validate_default=True,
@@ -76,13 +99,12 @@ class CollectionWorker(
         )
         if data is None:
             return
-        return cls._create_obj(**data)
+        await cls._rel_get_data(data)
+        return cls._create_obj(data)
 
     @classmethod
     async def get_all(
-        cls: Type[T],
-        filter: Optional[dict] = None,
-        **kwargs
+        cls: Type[T], filter: Optional[dict] = None, **kwargs
     ) -> List[T]:
         """
         Search all object by filter.
@@ -93,13 +115,17 @@ class CollectionWorker(
         Args:
             filter (dict): filter for search
         """
+        result = []
+
         collection = cls._get_collection()
 
         data = await collection.find(
-            filter=CollectionWorker._prepea_filter_get(filter),
-            **kwargs
+            filter=CollectionWorker._prepea_filter_get(filter), **kwargs
         ).to_list(None)
-        return [cls._create_obj(**d) for d in data]
+        for d in data:
+            await cls._rel_get_data(d)
+            result.append(cls._create_obj(d))
+        return result
 
     async def delete(self):
         """
@@ -114,7 +140,8 @@ class CollectionWorker(
     async def count(cls: Type[T], **kwargs) -> int:
         """Return count of objects"""
         return await cls._get_collection().count_documents(
-            CollectionWorker._prepea_filter_get(kwargs))
+            CollectionWorker._prepea_filter_get(kwargs)
+        )
 
     @classmethod
     async def exists(cls: Type[T], **kwargs) -> bool:
@@ -130,21 +157,22 @@ class CollectionWorker(
         # Create filter
         filter = CollectionWorker._prepea_filter_get(kwargs)
         if cfg_lock_record.lock_max_period_sec > 0:
-            filter.update({
-                "$or": [
-                    {
-                        cfg_lock_record.lock_field: False
-                    },
-                    {
-                        cfg_lock_record.lock_field: True,
-                        cfg_lock_record.lock_field_time_start: {
-                            "$lt": l_dt_start - datetime.timedelta(
-                                seconds=cfg_lock_record.lock_max_period_sec
-                            )
-                        }
-                    }
-                ]
-            })
+            filter.update(
+                {
+                    "$or": [
+                        {cfg_lock_record.lock_field: False},
+                        {
+                            cfg_lock_record.lock_field: True,
+                            cfg_lock_record.lock_field_time_start: {
+                                "$lt": l_dt_start
+                                - datetime.timedelta(
+                                    seconds=cfg_lock_record.lock_max_period_sec
+                                )
+                            },
+                        },
+                    ]
+                }
+            )
         else:
             filter.update({cfg_lock_record.lock_field: False})
 
@@ -154,28 +182,29 @@ class CollectionWorker(
             update={
                 "$set": {
                     cfg_lock_record.lock_field: True,
-                    cfg_lock_record.lock_field_time_start: l_dt_start
+                    cfg_lock_record.lock_field_time_start: l_dt_start,
                 }
             },
             return_document=(
                 ReturnDocument.BEFORE
                 if cfg_lock_record.lock_max_period_sec > 0
                 else ReturnDocument.AFTER
-            )
+            ),
         )
         if data is None:
             return
 
         # Check
         if cfg_lock_record.lock_max_period_sec > 0:
-            data_obj = cls._create_obj(**data)
+            data_obj = cls._create_obj(data)
             data_l_dt_start: datetime.datetime = getattr(
                 data_obj, cfg_lock_record.lock_field_time_start
             )
             if data_l_dt_start is not None:
                 # Ensure TZ is UTC
                 data_l_dt_start = data_l_dt_start.replace(
-                    tzinfo=datetime.timezone.utc)
+                    tzinfo=datetime.timezone.utc
+                )
                 if l_dt_start - data_l_dt_start > datetime.timedelta(
                     seconds=cfg_lock_record.lock_max_period_sec
                 ):
@@ -186,12 +215,14 @@ class CollectionWorker(
                     )
             # Get original data
             data = await cls._get_collection().find_one(
-                filter=CollectionWorker._prepea_filter_get(kwargs))
+                filter=CollectionWorker._prepea_filter_get(kwargs)
+            )
             if data is None:
                 raise RuntimeError("Object not found")
 
         # Create object
-        return cls._create_obj(**data)
+        await cls._rel_get_data(data)
+        return cls._create_obj(data)
 
     async def reset_lock(self):
         """Reset lock"""
@@ -210,9 +241,10 @@ class CollectionWorker(
             update={
                 "$set": {
                     cfg_lock_record.lock_field: getattr(
-                        self, cfg_lock_record.lock_field)
+                        self, cfg_lock_record.lock_field
+                    )
                 }
-            }
+            },
         )
 
     @classmethod
@@ -231,9 +263,7 @@ class CollectionWorker(
     @classmethod
     @asynccontextmanager
     async def get_lock_wait_context(
-        cls: Type[T],
-        filter: dict,
-        timeout: float = 5
+        cls: Type[T], filter: dict, timeout: float = 5
     ):
         """
         Get object if it is not locked, otherwise wait until it is unlocked
@@ -257,10 +287,7 @@ class CollectionWorker(
         while True:
             # Wait
             if is_try:
-                if (
-                    timeout != 0 and
-                    loop.time() - time_start > timeout
-                ):
+                if timeout != 0 and loop.time() - time_start > timeout:
                     raise asyncio.TimeoutError()
                 await asyncio.sleep(int_up)
             else:
@@ -284,9 +311,7 @@ class CollectionWorker(
                 await obj.reset_lock()
 
     @classmethod
-    def expiration_index_update(
-        cls: Type[T], field: str, expire_seconds: int
-    ):
+    def expiration_index_update(cls: Type[T], field: str, expire_seconds: int):
         """Update expire index for collections by field name
 
         Parameters
@@ -322,6 +347,48 @@ class CollectionWorker(
             return
         raise ValueError(f"The index by '{field}' not found")
 
+    def model_dump(
+        self,
+        *args,
+        as_origin: bool = False,
+        skip_save_check: bool = False,
+        **kwargs,
+    ) -> dict:
+        """
+        Return dict with data for save in database
+
+        Args:
+            as_origin - return dict with original data
+            skip_save_check - exclude the mtm fields that are not saved
+        """
+        if as_origin:
+            return super().model_dump(*args, **kwargs)
+
+        if "exclude" not in kwargs:
+            kwargs["exclude"] = []
+
+        # MtM exclude
+        kwargs["exclude"].extend([x for x, _ in self._mtm_get_fields()])
+
+        data = super().model_dump(*args, **kwargs)
+
+        # MtM add fields
+        for fname, ftype in self._mtm_get_fields():
+            mtm_field_name = self._mtm_field_name(fname)
+            data[mtm_field_name] = []
+            for mtm_obj in getattr(self, fname):
+                assert isinstance(mtm_obj, CollectionWorker)
+                if mtm_obj._id is None:
+                    if skip_save_check:
+                        continue
+                    raise ValueError(
+                        f"The one or more objects in the field '{fname}' "
+                        "is not saved"
+                    )
+                data[mtm_field_name].append(mtm_obj._id)
+
+        return data
+
     # __ Properties ___
 
     @property
@@ -336,33 +403,105 @@ class CollectionWorker(
     # ___ Private methods ___
 
     @classmethod
-    def _create_obj(cls, **kwargs):
+    def _mtm_get_fields(cls) -> List[Tuple[str, str]]:
+        """
+        Return list of fields for many-to-many relations
+
+        For Python 3.12+ ftype is:
+            typing.Annotated[typing.List[<T>]
+        """
+        result = []
+        for fname, ftype in cls.__annotations__.items():
+            if sys.version_info >= (3, 9):
+                if (
+                    get_origin(ftype) == typing.Annotated
+                    and cls._annotated_get_title(ftype)
+                    == RFManyToMany.__metadata__[0].title
+                ):
+                    result.append((fname, ftype))
+            else:
+                if get_origin(ftype) == RFManyToMany:
+                    result.append((fname, ftype))
+        return result
+
+    @classmethod
+    def _mtm_field_name(cls, mtm_filed_name: str) -> str:
+        """
+        Generate name of field for many-to-many relations
+        which will be used for save in database
+        """
+        mtm_suffix = "_ids"
+        return f"{mtm_filed_name}{mtm_suffix}"
+
+    @classmethod
+    async def _rel_get_data(cls, data: dict):
+        """
+        Added to the data relation fields (mtm)
+
+        Args:
+            data - dict with data of parent, from database
+        """
+        # MtM fields
+        for fname, ftype in cls._mtm_get_fields():
+            mtm_field_name = cls._mtm_field_name(fname)
+            mtm_class = get_args(ftype)[0]
+            # Get Generic type (List[<T>])
+            if sys.version_info >= (3, 9):
+                mtm_class = get_args(mtm_class)[0]
+
+            mtm_data = data.pop(mtm_field_name, [])
+            data[fname] = []
+
+            for mtm_id in mtm_data:
+                mtm_obj = await mtm_class.get(id=mtm_id)
+                if mtm_obj is None:
+                    raise ValueError(
+                        f"The object with id '{mtm_id}' not found, "
+                        f"field '{fname}'"
+                    )
+                data[fname].append(mtm_obj)
+
+    @classmethod
+    def _create_obj(cls, data: dict) -> "CollectionWorker":
         """
         Create object from database data
         """
-        object_id = kwargs.pop("_id", None)
+        object_id = data.pop("_id", None)
         if object_id is None:
             raise ValueError("Arguments don't have _id")
-        result = cls(**kwargs)
+        result = cls(**data)
         result._id = object_id
         return result
 
     @classmethod
     def _get_collection(cls) -> motor_asyncio.AsyncIOMotorCollection:
-        """ Return collection """
-        return AMPODatabase().get_db().get_collection(
-            cls.model_config[cfg_orm_collection],
-            codec_options=cls.model_config.get(cfg_orm_bson_codec_options)
+        """Return collection"""
+        return (
+            AMPODatabase()
+            .get_db()
+            .get_collection(
+                cls.model_config[cfg_orm_collection],
+                codec_options=cls.model_config.get(cfg_orm_bson_codec_options),
+            )
         )
 
     @classmethod
     def _get_cfg_lock_record(cls) -> ORMLockRecord:
         """Get cfg lock record"""
         cfg_lock_record: Optional[dict] = cls.model_config.get(
-            cfg_orm_lock_record)
+            cfg_orm_lock_record
+        )
         if cfg_lock_record is None:
             raise ValueError("Lock record is not enabled")
         return ORMLockRecord(**cfg_lock_record)
+
+    @classmethod
+    def _annotated_get_title(cls, ftype: Annotated) -> Optional[str]:
+        if ftype.__metadata__ is None:
+            return
+        if len(ftype.__metadata__) == 0:
+            return
+        return ftype.__metadata__[0].title
 
     @staticmethod
     def _prepea_filter_get(filter: Optional[dict] = None) -> Optional[dict]:
@@ -425,9 +564,13 @@ async def init_collection():
                         continue
                     if index.get("expireAfterSeconds") is None:
                         logger.warning(
-                            "This index has no option expireAfterSeconds")
+                            "This index has no option expireAfterSeconds"
+                        )
                         break
-                    if index.get("expireAfterSeconds") != orm_index.options.expireAfterSeconds:  # noqa: E501
+                    if (
+                        index.get("expireAfterSeconds")
+                        != orm_index.options.expireAfterSeconds
+                    ):  # noqa: E501
                         await collection.drop_index(index_name)
                         logger.debug("The index '%s' was dropped", index_name)
 
@@ -441,11 +584,13 @@ async def init_collection():
                 cr_ind_opt["commitQuorum"] = orm_index.commit_quorum_value
             await period_check_future(
                 aws=collection.create_indexes(
-                    [IndexModel(
-                        keys=orm_index.keys,
-                        name=index_name,
-                        **options,
-                    )],
+                    [
+                        IndexModel(
+                            keys=orm_index.keys,
+                            name=index_name,
+                            **options,
+                        )
+                    ],
                     **cr_ind_opt,
                 ),
                 period=40.0,
