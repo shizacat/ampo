@@ -3,8 +3,9 @@ import copy
 import typing
 from contextlib import asynccontextmanager
 import datetime
-from typing import Optional, TypeVar, Type, List, Tuple, AsyncIterator, Any, get_origin, get_args
+from typing import Optional, TypeVar, Type, List, Tuple, AsyncIterator, Any, get_origin, get_args, Generic
 from typing_extensions import Annotated, TypeAliasType
+import sys
 
 import bson.son
 from bson import ObjectId
@@ -29,36 +30,19 @@ from .log import logger
 
 
 T = TypeVar('T', bound='CollectionWorker')
-# RFManyToMany = Annotated[List[T], Field(default_factory=list)]
-RFManyToMany = TypeAliasType(
-    "RFManyToMany", Annotated[List[T], Field(default_factory=list)])
 
-
-# class RelatedFieldsMeta(_model_construction.ModelMetaclass):
-#     """
-#     The metaclass for related fields
-#     """
-
-#     def __new__(cls, name, bases, attrs, **kwargs):
-#         if "__annotations__" not in attrs.keys():
-#             return super().__new__(cls, name, bases, attrs, **kwargs)
-
-#         # Find all fields with type RFManyToMany
-#         mtm_fields = []
-#         for fname, ftype in attrs["__annotations__"].items():
-#             if (
-#                 isinstance(ftype, typing._GenericAlias) and
-#                 ftype.__name__ == RFManyToMany.__name__
-#             ):
-#                 mtm_fields.append(str(fname))
-#         # Add new fields
-#         for fname in mtm_fields:
-#             fsuffix = "_ids"
-#             field_name = f"{fname}{fsuffix}"
-#             attrs["__annotations__"][field_name] = List[str]
-#             attrs[field_name] = Field(default_factory=list)
-
-#         return super().__new__(cls, name, bases, attrs, **kwargs)
+# For Python 3.12 uses TypeAlias
+if sys.version_info >= (3, 12):
+    RFManyToMany = Annotated[
+        List[T],
+        Field(default_factory=list, title="RFManyToMany")
+    ]
+else:
+    RFManyToMany = TypeAliasType(
+        "RFManyToMany",
+        Annotated[List[T], Field(default_factory=list)],
+        # type_params=(T,),
+    )
 
 
 class CollectionWorker(
@@ -67,8 +51,6 @@ class CollectionWorker(
     # Config default model, from metaclass
     validate_assignment=True,
     validate_default=True,
-
-    # metaclass=RelatedFieldsMeta,
 ):
     """
     Base class for working with collections as pydatnic models
@@ -118,6 +100,9 @@ class CollectionWorker(
         for fname, ftype in cls._mtm_get_fields():
             mtm_field_name = cls._mtm_field_name(fname)
             mtm_class = get_args(ftype)[0]
+            # Get Generic type (List[<T>])
+            if sys.version_info >= (3, 12):
+                mtm_class = get_args(mtm_class)[0]
 
             mtm_data = data.pop(mtm_field_name, [])
             data[fname] = []
@@ -436,11 +421,21 @@ class CollectionWorker(
     def _mtm_get_fields(cls) -> List[Tuple[str, str]]:
         """
         Return list of fields for many-to-many relations
+
+        For Python 3.12+ ftype is:
+            typing.Annotated[typing.List[<T>]
         """
         result = []
         for fname, ftype in cls.__annotations__.items():
-            if get_origin(ftype) == RFManyToMany:
-                result.append((fname, ftype))
+            if sys.version_info <= (3, 10):
+                if get_origin(ftype) == RFManyToMany:
+                    result.append((fname, ftype))
+            else:
+                if (
+                    get_origin(ftype) == typing.Annotated and
+                    cls._annotated_get_title(ftype) == RFManyToMany.__metadata__[0].title
+                ):
+                    result.append((fname, ftype))
         return result
 
     @classmethod
@@ -480,6 +475,14 @@ class CollectionWorker(
         if cfg_lock_record is None:
             raise ValueError("Lock record is not enabled")
         return ORMLockRecord(**cfg_lock_record)
+
+    @classmethod
+    def _annotated_get_title(cls, ftype: Annotated) -> Optional[str]:
+        if ftype.__metadata__ is None:
+            return
+        if len(ftype.__metadata__) == 0:
+            return
+        return ftype.__metadata__[0].title
 
     @staticmethod
     def _prepea_filter_get(filter: Optional[dict] = None) -> Optional[dict]:
