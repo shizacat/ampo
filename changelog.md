@@ -7,6 +7,8 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-01-20
+
 ### Added
 
 - Added to index new option - 'commit_quorum'. See [docs](https://www.mongodb.com/docs/manual/reference/command/createIndexes/#std-label-createIndexes-cmd-commitQuorum).
