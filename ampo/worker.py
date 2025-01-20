@@ -8,6 +8,7 @@ from typing import (
     TypeVar,
     Type,
     List,
+    Union,
     Tuple,
     AsyncIterator,
     get_origin,
@@ -43,10 +44,16 @@ if sys.version_info >= (3, 9):
     RFManyToMany = Annotated[
         List[T], Field(default_factory=list, title="RFManyToMany")
     ]
+    RFOneToMany = Annotated[Optional[T], Field(None, title="RFOneToMany")]
 else:
     RFManyToMany = TypeAliasType(
         "RFManyToMany",
         Annotated[List[T], Field(default_factory=list)],
+        # type_params=(T,),
+    )
+    RFOneToMany = TypeAliasType(
+        "RFOneToMany",
+        Annotated[Optional[T], Field(..., title="RFOneToMany")],
         # type_params=(T,),
     )
 
@@ -367,14 +374,17 @@ class CollectionWorker(
         if "exclude" not in kwargs:
             kwargs["exclude"] = []
 
-        # MtM exclude
+        # Relations exclude
         kwargs["exclude"].extend([x for x, _ in self._mtm_get_fields()])
+        kwargs["exclude"].extend([x for x, _ in self._otm_get_fields()])
 
+        # Dump
         data = super().model_dump(*args, **kwargs)
 
         # MtM add fields
         for fname, ftype in self._mtm_get_fields():
             mtm_field_name = self._mtm_field_name(fname)
+            # Set default value
             data[mtm_field_name] = []
             for mtm_obj in getattr(self, fname):
                 assert isinstance(mtm_obj, CollectionWorker)
@@ -386,6 +396,20 @@ class CollectionWorker(
                         "is not saved"
                     )
                 data[mtm_field_name].append(mtm_obj._id)
+
+        # OtM add fields
+        for fname, ftype in self._otm_get_fields():
+            otm_field_name = self._otm_field_name(fname)
+            # Set default value
+            data[otm_field_name] = None
+            #
+            otm_obj = getattr(self, fname)
+            assert isinstance(otm_obj, CollectionWorker)
+            if not skip_save_check and otm_obj.id is None:
+                raise ValueError(
+                    "The object in the field '{fname}' is not saved"
+                )
+            data[otm_field_name] = otm_obj._id
 
         return data
 
@@ -403,35 +427,61 @@ class CollectionWorker(
     # ___ Private methods ___
 
     @classmethod
-    def _mtm_get_fields(cls) -> List[Tuple[str, str]]:
+    def _rel_get_fields(
+        cls, cmp_type: Union[RFManyToMany, RFOneToMany]
+    ) -> List[Tuple[str, str]]:
         """
-        Return list of fields for many-to-many relations
+        Return list of fields for relations fields
 
         For Python 3.12+ ftype is:
             typing.Annotated[typing.List[<T>]
         """
         result = []
+        title_name: str = cmp_type.__metadata__[0].title
+
         for fname, ftype in cls.__annotations__.items():
             if sys.version_info >= (3, 9):
                 if (
                     get_origin(ftype) == typing.Annotated
-                    and cls._annotated_get_title(ftype)
-                    == RFManyToMany.__metadata__[0].title
+                    and cls._annotated_get_title(ftype) == title_name
                 ):
                     result.append((fname, ftype))
             else:
-                if get_origin(ftype) == RFManyToMany:
+                if get_origin(ftype) == cmp_type:
                     result.append((fname, ftype))
         return result
 
     @classmethod
-    def _mtm_field_name(cls, mtm_filed_name: str) -> str:
+    def _otm_get_fields(cls) -> List[Tuple[str, str]]:
+        """
+        Return list of fields for one-to-many relations
+        """
+        return cls._rel_get_fields(RFOneToMany)
+
+    @classmethod
+    def _mtm_get_fields(cls) -> List[Tuple[str, str]]:
+        """
+        Return list of fields for many-to-many relations
+        """
+        return cls._rel_get_fields(RFManyToMany)
+
+    @classmethod
+    def _mtm_field_name(cls, filed_name: str) -> str:
         """
         Generate name of field for many-to-many relations
         which will be used for save in database
         """
         mtm_suffix = "_ids"
-        return f"{mtm_filed_name}{mtm_suffix}"
+        return f"{filed_name}{mtm_suffix}"
+
+    @classmethod
+    def _otm_field_name(cls, filed_name: str) -> str:
+        """
+        Generate name of field for one-to-many relations
+        which will be used for save in database
+        """
+        otm_suffix = "_id"
+        return f"{filed_name}{otm_suffix}"
 
     @classmethod
     async def _rel_get_data(cls, data: dict):
@@ -460,6 +510,24 @@ class CollectionWorker(
                         f"field '{fname}'"
                     )
                 data[fname].append(mtm_obj)
+
+        # OtM fields
+        for fname, ftype in cls._otm_get_fields():
+            otm_field_name = cls._otm_field_name(fname)
+            otm_class = get_args(ftype)[0]
+            # Get Generic type (List[<T>])
+            if sys.version_info >= (3, 9):
+                otm_class = get_args(otm_class)[0]
+            otm_id = data.pop(otm_field_name, None)
+            otm_obj = None
+            if otm_id is not None:
+                otm_obj = await otm_class.get(id=otm_id)
+                if otm_obj is None:
+                    raise ValueError(
+                        f"The object with id '{otm_id}' not found, "
+                        f"field '{fname}'"
+                    )
+            data[fname] = otm_obj
 
     @classmethod
     def _create_obj(cls, data: dict) -> "CollectionWorker":
