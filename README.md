@@ -1,8 +1,10 @@
 # Aio Mongo Pydantic ORM (ampo)
 
 Features:
+- The ORM is based on pydantic
 - Asynchronous
 - Many to many relationships
+- One to many relationships
 - Support MongoDB from 4.2
 - Python 3.8+
 

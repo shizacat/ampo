@@ -14,6 +14,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Add property 'id' to WorkerCollection.
 - Added the new method 'get_lock_wait_context'.
 - Added relationship for 'Many to Many' in the model.
+- Added relatinoship for 'One to Many' in the model.
 
 ### Changed
 

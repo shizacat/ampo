@@ -9,7 +9,12 @@ from bson.codec_options import CodecOptions
 from pydantic import BaseModel, Field, ValidationError
 
 from ampo import (
-    AMPODatabase, CollectionWorker, ORMConfig, init_collection, RFManyToMany
+    AMPODatabase,
+    CollectionWorker,
+    ORMConfig,
+    init_collection,
+    RFManyToMany,
+    RFOneToMany,
 )
 
 
@@ -165,3 +170,72 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(a_all), 1)
         self.assertEqual(len(a_all[0].names), 1)
         self.assertEqual(a_all[0].names[0].name, "rrr-test")
+
+    # --- One To Many ---
+
+    async def test_relation_otm_01(self):
+        """
+        Success create
+        """
+        class A1(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test-relation-otm-01",
+            )
+            field1: str
+            name: RFOneToMany[R1]
+
+        # Create with empty
+        a = A1(field1="test")
+        self.assertIsNone(a.name)
+
+        # Create with element
+        a = A1(field1="test", name=R1(name="test"))
+        self.assertIsInstance(a.name, CollectionWorker)
+
+        # Except, create wrong type
+        with self.assertRaises(ValueError):
+            a = A1(field1="test", name=123)
+
+        # Except, set wrong type
+        with self.assertRaises(ValueError):
+            a = A1(field1="test")
+            a.name = 123
+
+        # Model dump, correct field exists
+        a = A1(field1="test", name=R1(name="test"))
+        d = a.model_dump(skip_save_check=True)
+        self.assertIn("name_id", d)
+        self.assertNotIn("name", d)
+
+        # Model dump, except if the object don't save
+        a = A1(field1="test", name=R1(name="test"))
+        with self.assertRaises(ValueError):
+            a.model_dump()
+
+    async def test_relation_otm_02(self):
+        """
+        Success, save and get
+        """
+        class A2(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test-relation-otm-02",
+            )
+            field1: str
+            name: RFOneToMany[R1]
+
+        await init_collection()
+
+        # Create
+        r = R1(name="rrr-test")
+        await r.save()
+        a = A2(field1="test", name=r)
+        await a.save()
+
+        # __ get and check
+        a1 = await A2.get(id=a.id)
+        self.assertEqual(a1.name.name, "rrr-test")
+
+        # __ get all
+        a_all = await A2.get_all()
+        self.assertEqual(len(a_all), 1)
+        self.assertEqual(a_all[0].name.name, "rrr-test")
