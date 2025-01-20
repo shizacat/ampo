@@ -53,7 +53,7 @@ else:
     )
     RFOneToMany = TypeAliasType(
         "RFOneToMany",
-        Annotated[Optional[T], Field(..., title="RFOneToMany")],
+        Annotated[Optional[T], Field(None, title="RFOneToMany")],
         # type_params=(T,),
     )
 
