@@ -437,10 +437,10 @@ class CollectionWorker(
             typing.Annotated[typing.List[<T>]
         """
         result = []
-        title_name: str = cmp_type.__metadata__[0].title
 
         for fname, ftype in cls.__annotations__.items():
             if sys.version_info >= (3, 9):
+                title_name: str = cmp_type.__metadata__[0].title
                 if (
                     get_origin(ftype) == typing.Annotated
                     and cls._annotated_get_title(ftype) == title_name
