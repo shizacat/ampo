@@ -413,8 +413,6 @@ class CollectionWorker(
                         f"The object in the field '{fname}' is not saved"
                     )
                 data[otm_field_name] = otm_obj._id
-            else:
-                data[otm_field_name] = None
 
         return data
 
