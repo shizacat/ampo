@@ -18,7 +18,7 @@ from ampo import (
 )
 
 
-mongo_url = os.environ.get("TEST_MONGO_URL", None)
+mongo_url = os.environ.get("TEST_MONGO_URL", "mongodb://localhost/test")
 
 # Check mongo url config
 if mongo_url is None:
@@ -237,5 +237,38 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
         # __ get all
         a_all = await A2.get_all()
+        self.assertEqual(len(a_all), 1)
+        self.assertEqual(a_all[0].name.name, "rrr-test")
+
+    async def test_relation_otm_03(self):
+        """
+        Success, save without field
+        """
+        class A3(CollectionWorker):
+            model_config = ORMConfig(
+                orm_collection="test-relation-otm-03",
+            )
+            field1: str
+            name: RFOneToMany[R1]
+
+        await init_collection()
+
+        a = A3(field1="test")
+        await a.save()
+
+        a1 = await A3.get(id=a.id)
+        self.assertEqual(a1.field1, "test")
+        self.assertIsNone(a1.name)
+
+        r = R1(name="rrr-test")
+        await r.save()
+        a1.name = r
+        await a1.save()
+
+        a1_updated = await A3.get(id=a1.id)
+        self.assertEqual(a1_updated.name.name, "rrr-test")
+
+        # __ get all
+        a_all = await A3.get_all()
         self.assertEqual(len(a_all), 1)
         self.assertEqual(a_all[0].name.name, "rrr-test")
