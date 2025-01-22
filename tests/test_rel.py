@@ -18,7 +18,7 @@ from ampo import (
 )
 
 
-mongo_url = os.environ.get("TEST_MONGO_URL", "mongodb://localhost/test")
+mongo_url = os.environ.get("TEST_MONGO_URL", None)
 
 # Check mongo url config
 if mongo_url is None:
