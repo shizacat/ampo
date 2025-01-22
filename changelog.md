@@ -7,6 +7,13 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-01-22
+
+### Fixed
+
+- Fixed a bug with the OneToMany relationship, which did not check for a None value in a field.
+
+
 ## [0.3.0] - 2025-01-20
 
 ### Added
