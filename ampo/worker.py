@@ -404,12 +404,15 @@ class CollectionWorker(
             data[otm_field_name] = None
             #
             otm_obj = getattr(self, fname)
-            assert isinstance(otm_obj, CollectionWorker)
-            if not skip_save_check and otm_obj.id is None:
-                raise ValueError(
-                    "The object in the field '{fname}' is not saved"
-                )
-            data[otm_field_name] = otm_obj._id
+
+            # Handling None for OtM objects
+            if otm_obj is not None:
+                assert isinstance(otm_obj, CollectionWorker)
+                if not skip_save_check and otm_obj.id is None:
+                    raise ValueError(
+                        f"The object in the field '{fname}' is not saved"
+                    )
+                data[otm_field_name] = otm_obj._id
 
         return data
 
