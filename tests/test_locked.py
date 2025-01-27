@@ -75,7 +75,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(a.field1, "test")
             self.assertTrue(a.lfield)
         # Check lock is removed
-        a = await A.get(field1="test")
+        a = await A.get(filter={"field1": "test"})
         self.assertFalse(a.lfield)
 
     async def test_get_lock_wait_context_02(self):
@@ -191,7 +191,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         try:
             async with A.get_lock_wait_context(field1="test"):
                 # check lock is set
-                a = await A.get(field1="test")
+                a = await A.get(filter={"field1": "test"})
                 self.assertTrue(a.lfield)
 
                 raise RuntimeError("Object is locked.")
@@ -199,7 +199,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             pass
 
         # check lock is removed
-        a = await A.get(field1="test")
+        a = await A.get(filter={"field1": "test"})
         self.assertFalse(a.lfield)
 
     async def test_get_lock_wait_context_06(self):
@@ -217,7 +217,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         try:
             async with A.get_lock_wait_context(field1="test"):
                 # check lock is set
-                a = await A.get(field1="test")
+                a = await A.get(filter={"field1": "test"})
                 self.assertTrue(a.lfield)
 
                 await test()
@@ -225,7 +225,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             pass
 
         # check lock is removed
-        a = await A.get(field1="test")
+        a = await A.get(filter={"field1": "test"})
         self.assertFalse(a.lfield)
 
     # get_and_lock
@@ -246,14 +246,14 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.1)
 
         # Don't got
-        obj = await A.get_and_lock(field1="test")
+        obj = await A.get_and_lock(filter={"field1": "test"})
         self.assertIsInstance(obj, A)
 
         # Reset lock
         await obj.reset_lock()
 
         # Get
-        obj = await A.get(field1="test")
+        obj = await A.get(filter={"field1": "test"})
         self.assertFalse(obj.lfield)
 
     async def test_get_and_lock_02(self):
@@ -287,7 +287,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.1)
 
         # Don't got
-        obj = await A01.get_and_lock(field1="test")
+        obj = await A01.get_and_lock(filter={"field1": "test"})
         self.assertIsNone(obj)
 
         # Manual reset lock
@@ -295,7 +295,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await a.save()
 
         # Get with lock
-        obj = await A01.get_and_lock(field1="test")
+        obj = await A01.get_and_lock(filter={"field1": "test"})
         self.assertIsInstance(obj, A01)
 
     async def test_get_and_lock_03(self):
@@ -318,13 +318,13 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await A01(field1="test").save()
 
         # Get lock
-        a = await A01.get_and_lock(field1="test")
+        a = await A01.get_and_lock(filter={"field1": "test"})
         self.assertIsInstance(a, A01)
         self.assertEqual(a.lfield, True)  # lock is set
         self.assertIsNotNone(a.field_dt_start)  # lock start time is set
 
         # Not found
-        b = await A01.get_and_lock(field1="test")
+        b = await A01.get_and_lock(filter={"field1": "test"})
         self.assertIsNone(b)
 
         # Unlock
@@ -336,7 +336,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(a.lfield, True)  # lock is set
 
                 # Not found
-                b = await A01.get_and_lock(field1="test")
+                b = await A01.get_and_lock(filter={"field1": "test"})
                 self.assertIsNone(b)
         self.assertEqual(a.lfield, False)  # lock is unset
 
@@ -353,4 +353,4 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await init_collection()
 
         with self.assertRaises(ValueError):
-            await A01.get_and_lock(field1="test")
+            await A01.get_and_lock(filter={"field1": "test"})

@@ -7,6 +7,16 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+### Changed
+
+- The method 'CollectionWorker.get' was changed. The argument 'filter' was added.
+
+### Added
+
+- The method 'CollectionWorker.get_and_lock' was changed. The argument 'skip_not_found' was added.
+- The argument 'skip_not_found' - it skip the relation objects if they are not found.
+
+
 ## [0.3.1] - 2025-01-22
 
 ### Fixed

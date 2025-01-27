@@ -95,23 +95,32 @@ class CollectionWorker(
         #     {"_id": self._id}, {"$set": self.model_dump()}, upsert=False)
 
     @classmethod
-    async def get(cls: Type[T], **kwargs) -> Optional[T]:
+    async def get(
+        cls: Type[T],
+        filter: Optional[dict] = None,
+        skip_not_found: bool = False,
+        **kwargs
+    ) -> Optional[T]:
         """
         Get one object from database
         """
         collection = cls._get_collection()
 
         data = await collection.find_one(
-            filter=CollectionWorker._prepea_filter_get(kwargs)
+            filter=CollectionWorker._prepea_filter_get(filter),
+            **kwargs
         )
         if data is None:
             return
-        await cls._rel_get_data(data)
+        await cls._rel_get_data(data=data, skip_not_found=skip_not_found)
         return cls._create_obj(data)
 
     @classmethod
     async def get_all(
-        cls: Type[T], filter: Optional[dict] = None, **kwargs
+        cls: Type[T],
+        filter: Optional[dict] = None,
+        skip_not_found: bool = False,
+        **kwargs
     ) -> List[T]:
         """
         Search all object by filter.
@@ -121,6 +130,8 @@ class CollectionWorker(
 
         Args:
             filter (dict): filter for search
+            skip_not_found (bool): If True, then the relation object
+                will be skipped if the object is not found
         """
         result = []
 
@@ -130,7 +141,7 @@ class CollectionWorker(
             filter=CollectionWorker._prepea_filter_get(filter), **kwargs
         ).to_list(None)
         for d in data:
-            await cls._rel_get_data(d)
+            await cls._rel_get_data(data=d, skip_not_found=skip_not_found)
             result.append(cls._create_obj(d))
         return result
 
@@ -156,15 +167,19 @@ class CollectionWorker(
         return await cls.count(**kwargs) > 0
 
     @classmethod
-    async def get_and_lock(cls: Type[T], **kwargs: dict) -> Optional[T]:
+    async def get_and_lock(
+        cls: Type[T],
+        filter: Optional[dict] = None,
+        skip_not_found: bool = False,
+    ) -> Optional[T]:
         """Get and lock"""
         cfg_lock_record = cls._get_cfg_lock_record()
         l_dt_start = datetime_utcnow_tz()
 
         # Create filter
-        filter = CollectionWorker._prepea_filter_get(kwargs)
+        filter_p = CollectionWorker._prepea_filter_get(filter)
         if cfg_lock_record.lock_max_period_sec > 0:
-            filter.update(
+            filter_p.update(
                 {
                     "$or": [
                         {cfg_lock_record.lock_field: False},
@@ -181,11 +196,11 @@ class CollectionWorker(
                 }
             )
         else:
-            filter.update({cfg_lock_record.lock_field: False})
+            filter_p.update({cfg_lock_record.lock_field: False})
 
         # Get
         data: Optional[dict] = await cls._get_collection().find_one_and_update(
-            filter=filter,
+            filter=filter_p,
             update={
                 "$set": {
                     cfg_lock_record.lock_field: True,
@@ -222,13 +237,13 @@ class CollectionWorker(
                     )
             # Get original data
             data = await cls._get_collection().find_one(
-                filter=CollectionWorker._prepea_filter_get(kwargs)
+                filter=CollectionWorker._prepea_filter_get(filter)
             )
             if data is None:
                 raise RuntimeError("Object not found")
 
         # Create object
-        await cls._rel_get_data(data)
+        await cls._rel_get_data(data=data, skip_not_found=skip_not_found)
         return cls._create_obj(data)
 
     async def reset_lock(self):
@@ -260,7 +275,7 @@ class CollectionWorker(
         cls: Type[T], **kwargs: dict
     ) -> AsyncIterator[T]:
         """Get and lock context"""
-        obj = await cls.get_and_lock(**kwargs)
+        obj = await cls.get_and_lock(filter=kwargs)
         try:
             yield obj
         finally:
@@ -305,7 +320,7 @@ class CollectionWorker(
             if not obj:
                 raise ValueError("The object not found")
 
-            obj = await cls.get_and_lock(**filter)
+            obj = await cls.get_and_lock(filter=filter)
             if obj is None:
                 continue
             break
@@ -487,12 +502,15 @@ class CollectionWorker(
         return f"{filed_name}{otm_suffix}"
 
     @classmethod
-    async def _rel_get_data(cls, data: dict):
+    async def _rel_get_data(cls, data: dict, skip_not_found: bool = False):
         """
         Added to the data relation fields (mtm)
 
         Args:
             data - dict with data of parent, from database
+            skip_not_found - if True, then do not raise an exception
+                if the relation object is not found.
+                This object will be exclude.
         """
         # MtM fields
         for fname, ftype in cls._mtm_get_fields():
@@ -506,12 +524,17 @@ class CollectionWorker(
             data[fname] = []
 
             for mtm_id in mtm_data:
-                mtm_obj = await mtm_class.get(id=mtm_id)
+                mtm_obj = await mtm_class.get(filter={"id": mtm_id})
                 if mtm_obj is None:
-                    raise ValueError(
+                    msg = (
                         f"The object with id '{mtm_id}' not found, "
                         f"field '{fname}'"
                     )
+                    if skip_not_found:
+                        logger.warning(msg)
+                        continue
+                    else:
+                        raise ValueError(msg)
                 data[fname].append(mtm_obj)
 
         # OtM fields
@@ -524,12 +547,17 @@ class CollectionWorker(
             otm_id = data.pop(otm_field_name, None)
             otm_obj = None
             if otm_id is not None:
-                otm_obj = await otm_class.get(id=otm_id)
+                otm_obj = await otm_class.get(filter={"id": otm_id})
                 if otm_obj is None:
-                    raise ValueError(
+                    msg = (
                         f"The object with id '{otm_id}' not found, "
                         f"field '{fname}'"
                     )
+                    if skip_not_found:
+                        logger.warning(msg)
+                        otm_obj = None
+                    else:
+                        raise ValueError(msg)
             data[fname] = otm_obj
 
     @classmethod
