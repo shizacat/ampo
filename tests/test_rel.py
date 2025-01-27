@@ -95,14 +95,14 @@ class Main(unittest.IsolatedAsyncioTestCase):
         a = A(field1="test0")
         await a.save()
         # __ get and check
-        a1 = await A.get(id=a.id)
+        a1 = await A.get(filter={"id": a.id})
         self.assertEqual(len(a1.names), 0)
 
         # Create with element
         a = A(field1="test1", names=[r])
         await a.save()
         # __ get and check
-        a1 = await A.get(id=a.id)
+        a1 = await A.get(filter={"id": a.id})
         self.assertEqual(len(a1.names), 1)
         self.assertEqual(a1.names[0].name, "test")
 
@@ -111,7 +111,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         a.names.append(r)
         await a.save()
         # __ get and check
-        a1 = await A.get(id=a.id)
+        a1 = await A.get(filter={"id": a.id})
         self.assertEqual(len(a1.names), 1)
         self.assertEqual(a1.names[0].name, "test")
 
@@ -147,7 +147,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await a.save()
 
         # __ get and check
-        a1 = await A1.get(id=a.id)
+        a1 = await A1.get(filter={"id": a.id})
         self.assertEqual(len(a1.datas), 1)
         self.assertEqual(a1.datas[0].data, "data-test")
         self.assertEqual(len(a1.datas[0].names), 1)
@@ -170,6 +170,31 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(a_all), 1)
         self.assertEqual(len(a_all[0].names), 1)
         self.assertEqual(a_all[0].names[0].name, "rrr-test")
+
+    async def test_relation_mtm_05(self):
+        """
+        Success, the object from relation was deleted
+        """
+        await init_collection()
+
+        # Create and fill db
+        r = R1(name="rrr-test")
+        await r.save()
+        a = A(field1="test", names=[r])
+        await a.save()
+        await r.delete()
+
+        # Try, get
+        with self.assertRaises(ValueError):
+            await A.get(filter={"id": a.id})
+
+        # Try, get_all
+        with self.assertRaises(ValueError):
+            await A.get_all()
+
+        # Try get_all, with skip
+        a1 = await A.get_all(skip_not_found=True)
+        self.assertEqual(len(a1[0].names), 0)
 
     # --- One To Many ---
 
@@ -232,7 +257,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await a.save()
 
         # __ get and check
-        a1 = await A2.get(id=a.id)
+        a1 = await A2.get(filter={"id": a.id})
         self.assertEqual(a1.name.name, "rrr-test")
 
         # __ get all
@@ -256,7 +281,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         a = A3(field1="test")
         await a.save()
 
-        a1 = await A3.get(id=a.id)
+        a1 = await A3.get(filter={"id": a.id})
         self.assertEqual(a1.field1, "test")
         self.assertIsNone(a1.name)
 
@@ -265,7 +290,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         a1.name = r
         await a1.save()
 
-        a1_updated = await A3.get(id=a1.id)
+        a1_updated = await A3.get(filter={"id": a1.id})
         self.assertEqual(a1_updated.name.name, "rrr-test")
 
         # __ get all

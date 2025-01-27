@@ -68,16 +68,16 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(object_id, a._id)
 
         # Get object
-        d = await A.get(field1="check")
+        d = await A.get(filter={"field1": "check"})
         self.assertIsInstance(d, A)
         self.assertEqual(d._id, object_id)
 
         # Get by id
-        d = await A.get(_id=object_id)
+        d = await A.get(filter={"_id": object_id})
         self.assertEqual(d._id, object_id)
 
         # Get by id as str
-        d = await A.get(_id=str(object_id))
+        d = await A.get(filter={"_id": str(object_id)})
         self.assertEqual(d._id, object_id)
 
         # Get all, default
@@ -97,7 +97,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(d), 0)
 
         # Delete
-        d = await A.get(_id=object_id)
+        d = await A.get(filter={"_id": object_id})
         await d.delete()
         d = await A.get_all()
         self.assertEqual(len(d), 1)
@@ -426,7 +426,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await a.save()
 
         # Get
-        d = await C.get(field="test")
+        d = await C.get(filter={"field": "test"})
         self.assertEqual(d._id, a._id)
 
     async def test_delete_01(self):
