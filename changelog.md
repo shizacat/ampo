@@ -7,6 +7,8 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-01-27
+
 ### Changed
 
 - The method 'CollectionWorker.get' was changed. The argument 'filter' was added.
