@@ -13,8 +13,9 @@ from typing import (
     AsyncIterator,
     get_origin,
     get_args,
+    Generic,
 )
-from typing_extensions import Annotated, TypeAliasType
+from typing_extensions import Annotated
 import sys
 
 import bson.son
@@ -35,12 +36,16 @@ from .utils import (
     cfg_orm_hooks,
     datetime_utcnow_tz,
     period_check_future,
-    HookType,
 )
 from .log import logger
 
 
 T = TypeVar("T", bound="CollectionWorker")
+
+
+class GenericModel(BaseModel, Generic[T]):
+    a: T
+
 
 # For Python 3.9+ uses TypeAlias
 if sys.version_info >= (3, 9):
@@ -49,16 +54,11 @@ if sys.version_info >= (3, 9):
     ]
     RFOneToMany = Annotated[Optional[T], Field(None, title="RFOneToMany")]
 else:
-    RFManyToMany = TypeAliasType(
-        "RFManyToMany",
-        Annotated[List[T], Field(default_factory=list)],
-        # type_params=(T,),
-    )
-    RFOneToMany = TypeAliasType(
-        "RFOneToMany",
-        Annotated[Optional[T], Field(None, title="RFOneToMany")],
-        # type_params=(T,),
-    )
+    class RFManyToMany(GenericModel, Generic[T]):
+        __root__: List[T] = Field(default_factory=list)
+
+    class RFOneToMany(GenericModel, Generic[T]):
+        __root__: Optional[T] = Field(default=None, title="RFOneToMany")
 
 
 class CollectionWorker(
