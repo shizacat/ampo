@@ -21,7 +21,7 @@ import sys
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
@@ -54,11 +54,11 @@ if sys.version_info >= (3, 9):
     ]
     RFOneToMany = Annotated[Optional[T], Field(None, title="RFOneToMany")]
 else:
-    class RFManyToMany(GenericModel, Generic[T]):
-        __root__: List[T] = Field(default_factory=list)
+    class RFManyToMany(RootModel[List[T]], Generic[T]):
+        root: List[T] = Field(default_factory=list)
 
-    class RFOneToMany(GenericModel, Generic[T]):
-        __root__: Optional[T] = Field(default=None, title="RFOneToMany")
+    class RFOneToMany(RootModel[Optional[T]], Generic[T]):
+        root: Optional[T] = Field(default=None, title="RFOneToMany")
 
 
 class CollectionWorker(
