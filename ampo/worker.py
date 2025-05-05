@@ -13,15 +13,14 @@ from typing import (
     AsyncIterator,
     get_origin,
     get_args,
-    Generic,
 )
-from typing_extensions import Annotated
+from typing_extensions import Annotated, TypeAliasType
 import sys
 
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, Field
 from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
@@ -43,10 +42,6 @@ from .log import logger
 T = TypeVar("T", bound="CollectionWorker")
 
 
-class GenericModel(BaseModel, Generic[T]):
-    a: T
-
-
 # For Python 3.9+ uses TypeAlias
 if sys.version_info >= (3, 9):
     RFManyToMany = Annotated[
@@ -54,11 +49,16 @@ if sys.version_info >= (3, 9):
     ]
     RFOneToMany = Annotated[Optional[T], Field(None, title="RFOneToMany")]
 else:
-    class RFManyToMany(RootModel[List[T]], Generic[T]):
-        root: List[T] = Field(default_factory=list)
-
-    class RFOneToMany(RootModel[Optional[T]], Generic[T]):
-        root: Optional[T] = Field(default=None, title="RFOneToMany")
+    RFManyToMany = TypeAliasType(
+        "RFManyToMany",
+        Annotated[List[T], Field(default_factory=list)],
+        # type_params=(T,),
+    )
+    RFOneToMany = TypeAliasType(
+        "RFOneToMany",
+        Annotated[Optional[T], Field(None, title="RFOneToMany")],
+        # type_params=(T,),
+    )
 
 
 class CollectionWorker(
