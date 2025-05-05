@@ -27,10 +27,12 @@ from .db import AMPODatabase
 from .utils import (
     ORMIndex,
     ORMLockRecord,
+    ORMHooks,
     cfg_orm_collection,
     cfg_orm_indexes,
     cfg_orm_bson_codec_options,
     cfg_orm_lock_record,
+    cfg_orm_hooks,
     datetime_utcnow_tz,
     period_check_future,
 )
@@ -38,6 +40,7 @@ from .log import logger
 
 
 T = TypeVar("T", bound="CollectionWorker")
+
 
 # For Python 3.9+ uses TypeAlias
 if sys.version_info >= (3, 9):
@@ -74,7 +77,7 @@ class CollectionWorker(
         # Internal variable
         self._id: Optional[ObjectId] = None
 
-    async def save(self):
+    async def save(self, context: Optional[dict] = None):
         """
         Save object to db.
         If the object exists into db, then the object will be replace.
@@ -82,17 +85,19 @@ class CollectionWorker(
         """
         collection = self._get_collection()
 
+        await self._run_hooks("pre_save", context)
+
         if self._id is None:
             # insert
             result = await collection.insert_one(self.model_dump())
             self._id = result.inserted_id
-            return
-
-        # update
-        await collection.replace_one({"_id": self._id}, self.model_dump())
-        # TODO: Not shure what better
-        # await collection.update_one(
-        #     {"_id": self._id}, {"$set": self.model_dump()}, upsert=False)
+        else:
+            # update
+            await collection.replace_one({"_id": self._id}, self.model_dump())
+            # TODO: Not shure what better
+            # await collection.update_one(
+            #     {"_id": self._id}, {"$set": self.model_dump()}, upsert=False)
+        await self._run_hooks("post_save", context)
 
     @classmethod
     async def get(
@@ -145,14 +150,19 @@ class CollectionWorker(
             result.append(cls._create_obj(d))
         return result
 
-    async def delete(self):
+    async def delete(self, context: Optional[dict] = None):
         """
         Delete object from database
         """
         collection = self._get_collection()
+
+        await self._run_hooks("pre_delete", context)
+
         if self._id is None:
             raise ValueError("Object not created")
         await collection.delete_one({"_id": self._id})
+
+        await self._run_hooks("post_delete", context)
 
     @classmethod
     async def count(cls: Type[T], **kwargs) -> int:
@@ -444,6 +454,18 @@ class CollectionWorker(
 
     # ___ Private methods ___
 
+    async def _run_hooks(self, hook_name: str, context: Optional[dict] = None):
+        """
+        Run all hooks by name
+        """
+        try:
+            hooks = getattr(self._get_hooks(), hook_name)
+        except AttributeError:
+            raise RuntimeError(f"The attribute {hook_name} not found")
+
+        for hook in hooks:
+            await hook(self, context)
+
     @classmethod
     def _rel_get_fields(
         cls, cmp_type: Union[RFManyToMany, RFOneToMany]
@@ -601,6 +623,16 @@ class CollectionWorker(
         if len(ftype.__metadata__) == 0:
             return
         return ftype.__metadata__[0].title
+
+    @classmethod
+    def _get_hooks(cls) -> ORMHooks:
+        """
+        Return hooks list
+        """
+        hooks: dict = cls.model_config.get(cfg_orm_hooks)
+        if hooks is None:
+            return ORMHooks()
+        return ORMHooks(**hooks)
 
     @staticmethod
     def _prepea_filter_get(filter: Optional[dict] = None) -> Optional[dict]:

@@ -1,6 +1,7 @@
+import sys
 import asyncio
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable, Awaitable, Any
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -12,6 +13,18 @@ cfg_orm_collection = "orm_collection"
 cfg_orm_indexes = "orm_indexes"
 cfg_orm_bson_codec_options = "orm_bson_codec_options"
 cfg_orm_lock_record = "orm_lock_record"
+cfg_orm_hooks = "orm_hooks"
+
+# For Python 3.9+ uses TypeAlias
+if sys.version_info >= (3, 9):
+    from typing_extensions import TypeAlias
+
+    # TODO: Any it is CollectionWorker, but how correct it setup
+    HookType: TypeAlias = Callable[
+        [Any, Optional[dict]], Awaitable[None]
+    ]
+else:
+    HookType = Callable[[Any, Optional[dict]], Awaitable[None]]
 
 
 class commitQuorum(str, Enum):
@@ -74,6 +87,17 @@ class ORMLockRecord(BaseModel):
     )
 
 
+class ORMHooks(BaseModel):
+    """
+    Hooks for ORM
+    """
+
+    pre_save: List[HookType] = Field(default_factory=list)
+    post_save: List[HookType] = Field(default_factory=list)
+    pre_delete: List[HookType] = Field(default_factory=list)
+    post_delete: List[HookType] = Field(default_factory=list)
+
+
 class ORMConfig(ConfigDict):
     """
     Custon configuration for Collection
@@ -89,6 +113,7 @@ class ORMConfig(ConfigDict):
     orm_indexes: List[ORMIndex]
     orm_bson_codec_options: Optional[CodecOptions]
     orm_lock_record: Optional[ORMLockRecord]
+    orm_hooks: Optional[ORMHooks]
 
 
 def datetime_utcnow_tz() -> datetime:

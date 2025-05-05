@@ -7,6 +7,13 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-04-30
+
+### Added
+
+- The hooks was added to 'CollectionWorker'
+
+
 ## [0.3.2] - 2025-01-27
 
 ### Changed

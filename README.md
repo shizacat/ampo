@@ -268,6 +268,36 @@ Mehanism reset lock.
 If lock exist more than time, set 'lock_max_period_sec', lock will be reset.
 Default value is 15 minutes.
 
+## Hooks
+
+Example:
+```python
+import datetime
+from typing import Optional
+from ampo import CollectionWorker, AMPODatabase, ORMConfig, init_collection
+
+# hooks
+await def hook(obj, context: dict):
+    print("Call hook for", obj)
+
+# Pydantic Model
+class ModelA(CollectionWorker):
+    field1: str
+
+    model_config = ORMConfig(
+        orm_collection="test",
+        orm_hooks={
+            "pre_save": [hook],
+            "post_save": [],
+            "pre_delete": [],
+            "post_delete": [],
+        }
+    )
+
+a = ModelA(field1="test")
+await a.save(context={"any": "any"})
+```
+
 # Development
 
 Style:
