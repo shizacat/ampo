@@ -7,6 +7,12 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-05-15
+
+### Added
+- The new type 'PydanticObjectId".
+
+
 ## [0.4.0] - 2025-04-30
 
 ### Added

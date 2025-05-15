@@ -84,6 +84,35 @@ insts = await ModelA.get_all(
 
 For search by 'id' usages in filter '_id' or 'id' name.
 
+For type ObjectId, use 'PydanticObjectId'.
+
+Example:
+```python
+from bson.objectid import ObjectId
+from ampo import (
+    CollectionWorker,
+    AMPODatabase,
+    ORMConfig,
+    init_collection,
+    PydanticObjectId
+)
+
+
+# Initilize DB before calls db methods
+AMPODatabase(url="mongodb://test")
+
+# Pydantic Model
+class ModelA(CollectionWorker):
+    field1: PydanticObjectId
+    
+    model_config = ORMConfig(orm_collection="test")
+
+await init_collection()
+
+inst_a = ModelA(field1=ObjectId("63538168e94461001215836a"))
+await inst_a.save()
+```
+
 ## Indexes
 
 ```python
