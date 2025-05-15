@@ -1,9 +1,16 @@
-from typing import Any, Callable, Annotated
+import sys
+from typing import Any, Callable
 
 from pydantic_core import core_schema
 from pydantic.json_schema import JsonSchemaValue
 from pydantic import GetJsonSchemaHandler
 from bson.objectid import ObjectId
+
+
+if sys.version_info >= (3, 10):
+    from typing import Annotated
+else:
+    from typing_extensions import Annotated
 
 
 class _PydanticObjectIdAnnotation:
