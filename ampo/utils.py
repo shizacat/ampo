@@ -39,6 +39,7 @@ class commitQuorum(str, Enum):
 class ORMIndexOptions(BaseModel):
     unique: Optional[bool] = None
     expireAfterSeconds: Optional[int] = None
+    partialFilterExpression: Optional[dict] = None
 
 
 class ORMIndex(BaseModel):

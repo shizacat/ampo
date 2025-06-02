@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
+import pymongo.errors
 
 from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
 
@@ -146,3 +147,37 @@ async def test_hook_post_delete(ampo_db: AMPODatabase):
     args, kwargs = h.call_args_list[1]
     assert isinstance(args[0], Model)
     assert args[1] == {"ctx": "post"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_index_check_partial_filter(ampo_db: AMPODatabase):
+    """
+    Checking usage partial filter in index
+    """
+    class Model(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="test_check_partial_filter",
+            orm_indexes=[{
+                "keys": ["f1"],
+                "options": {
+                    "unique": True,
+                    "partialFilterExpression": {
+                        "f1": {"$gt": 3}
+                    }
+                }
+            }]
+        )
+        f1: int
+
+    # Create index
+    await init_collection()
+
+    await Model(f1=1).save()
+    await Model(f1=1).save()
+    await Model(f1=3).save()
+    await Model(f1=5).save()
+    await Model(f1=10).save()
+
+    with pytest.raises(pymongo.errors.DuplicateKeyError):
+        await Model(f1=10).save()

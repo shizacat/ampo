@@ -7,6 +7,12 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-06-02]
+
+### Added
+- To the index was added new option - partialFilterExpression
+
+
 ## [0.4.1] - 2025-05-15
 
 ### Added
