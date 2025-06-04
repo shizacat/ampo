@@ -655,13 +655,20 @@ class CollectionWorker(
                 result["_id"] = ObjectId(result["_id"])
         return result
 
+    @classmethod
+    def all_subclasses(cls):
+        subclasses = set(cls.__subclasses__())
+        for subclass in list(subclasses):
+            subclasses.update(subclass.all_subclasses())
+        return subclasses
+
 
 async def init_collection():
     """
     Initialize all collection
     - Create indexies
     """
-    for cls in CollectionWorker.__subclasses__():
+    for cls in CollectionWorker.all_subclasses():
         collection = cls._get_collection()
 
         # Indexes process

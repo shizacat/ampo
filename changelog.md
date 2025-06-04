@@ -7,7 +7,11 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
-## [0.5.0] - 2025-06-02]
+## [0.4.3] - 2025-06-04
+- Add method to retrieve all subclasses of CollectionWorker
+
+
+## [0.4.2] - 2025-06-02
 
 ### Added
 - To the index was added new option - partialFilterExpression
