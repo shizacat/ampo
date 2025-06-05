@@ -7,13 +7,13 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
-## [0.5.1] - 2025-06-05]
+## [0.4.3] - 2025-06-05]
 
 ### Added
 - Added method '_subclasses_all' to traverse all subclasses including descendant subclasses
 
 
-## [0.5.0] - 2025-06-02]
+## [0.4.2] - 2025-06-02]
 
 ### Added
 - To the index was added new option - partialFilterExpression
