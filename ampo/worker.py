@@ -635,7 +635,7 @@ class CollectionWorker(
         return ORMHooks(**hooks)
 
     @classmethod
-    def _subclasses_all(cls) -> list["CollectionWorker"]:
+    def _subclasses_all(cls) -> List["CollectionWorker"]:
         """
         Returns all subclasses including descendant subclasses
         """
