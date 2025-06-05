@@ -7,6 +7,12 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-06-05]
+
+### Added
+- Added method '_subclasses_all' to traverse all subclasses including descendant subclasses
+
+
 ## [0.5.0] - 2025-06-02]
 
 ### Added

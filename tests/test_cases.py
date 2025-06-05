@@ -181,3 +181,62 @@ async def test_index_check_partial_filter(ampo_db: AMPODatabase):
 
     with pytest.raises(pymongo.errors.DuplicateKeyError):
         await Model(f1=10).save()
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_inheritance_worker_index(ampo_db: AMPODatabase):
+    """
+    We check that after inheriting the main class (CollectionWorker),
+    the traversal of all descendants is correct and indexes are created
+    """
+    # Create models
+    class A(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="A_test_inheritance_worker_index",
+            orm_indexes=[
+                {
+                    "keys": ["f1"],
+                    "options": {
+                        "unique": True
+                    }
+                }
+            ]
+        )
+        f1: str
+
+    class Main(CollectionWorker):
+        pass
+
+    class B(Main):
+        model_config = ORMConfig(
+            orm_collection="B_test_inheritance_worker_index",
+            orm_indexes=[
+                {
+                    "keys": ["f1"],
+                    "options": {
+                        "unique": True
+                    }
+                }
+            ]
+        )
+        f1: str
+
+    # init
+    await init_collection()
+
+    # check A
+    a1 = A(f1="test1")
+    await a1.save()
+    # Index was created
+    with pytest.raises(pymongo.errors.DuplicateKeyError):
+        a2 = A(f1="test1")
+        await a2.save()
+
+    # check B
+    b1 = B(f1="test2")
+    await b1.save()
+    # Index was created
+    with pytest.raises(pymongo.errors.DuplicateKeyError):
+        b2 = B(f1="test2")
+        await b2.save()

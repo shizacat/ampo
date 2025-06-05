@@ -634,6 +634,18 @@ class CollectionWorker(
             return ORMHooks()
         return ORMHooks(**hooks)
 
+    @classmethod
+    def _subclasses_all(cls) -> list["CollectionWorker"]:
+        """
+        Returns all subclasses including descendant subclasses
+        """
+        result = []
+        for subclass in cls.__subclasses__():
+            if subclass.model_config.get(cfg_orm_collection):
+                result.append(subclass)
+            result.extend(subclass._subclasses_all())
+        return result
+
     @staticmethod
     def _prepea_filter_get(filter: Optional[dict] = None) -> Optional[dict]:
         """
@@ -661,7 +673,7 @@ async def init_collection():
     Initialize all collection
     - Create indexies
     """
-    for cls in CollectionWorker.__subclasses__():
+    for cls in CollectionWorker._subclasses_all():
         collection = cls._get_collection()
 
         # Indexes process
