@@ -7,6 +7,10 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+
+- Added exceptions: AmpoException, AmpoDocumentNotFound, AmpoDocumentIsLock
+
+
 ## [0.4.3] - 2025-06-05]
 
 ### Added
