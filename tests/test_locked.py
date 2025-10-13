@@ -287,8 +287,9 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.1)
 
         # Don't got
-        obj = await A01.get_and_lock(filter={"field1": "test"})
-        self.assertIsNone(obj)
+        with self.assertRaises(ValueError) as err:
+            obj = await A01.get_and_lock(filter={"field1": "test"})
+        self.assertEqual(err.exception.__str__(), "The object is locked")
 
         # Manual reset lock
         a.lfield = False
@@ -324,8 +325,8 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(a.field_dt_start)  # lock start time is set
 
         # Not found
-        b = await A01.get_and_lock(filter={"field1": "test"})
-        self.assertIsNone(b)
+        with self.assertRaises(ValueError):
+            b = await A01.get_and_lock(filter={"field1": "test"})
 
         # Unlock
         await a.reset_lock()
@@ -336,8 +337,8 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(a.lfield, True)  # lock is set
 
                 # Not found
-                b = await A01.get_and_lock(filter={"field1": "test"})
-                self.assertIsNone(b)
+                with self.assertRaises(ValueError):
+                    b = await A01.get_and_lock(filter={"field1": "test"})
         self.assertEqual(a.lfield, False)  # lock is unset
 
     async def test_get_and_lock_04(self):

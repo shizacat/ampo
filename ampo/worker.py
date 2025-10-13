@@ -182,79 +182,75 @@ class CollectionWorker(
         filter: Optional[dict] = None,
         skip_not_found: bool = False,
     ) -> Optional[T]:
-        """Get and lock"""
+        """Get and lock the record
+
+        Raises:
+            ValueError - if the record not found
+
+        Return
+            The record, locked.
+            None if record not exists
+        """
         cfg_lock_record = cls._get_cfg_lock_record()
         l_dt_start = datetime_utcnow_tz()
+        lock_is_expired: bool = False
+        part_update = {
+            "$set": {
+                cfg_lock_record.lock_field: True,
+                cfg_lock_record.lock_field_time_start: l_dt_start,
+            }
+        }
 
         # Create filter
         filter_p = CollectionWorker._prepea_filter_get(filter)
-        if cfg_lock_record.lock_max_period_sec > 0:
-            filter_p.update(
-                {
-                    "$or": [
-                        {cfg_lock_record.lock_field: False},
-                        {
-                            cfg_lock_record.lock_field: True,
-                            cfg_lock_record.lock_field_time_start: {
-                                "$lt": l_dt_start
-                                - datetime.timedelta(
-                                    seconds=cfg_lock_record.lock_max_period_sec
-                                )
-                            },
-                        },
-                    ]
-                }
-            )
-        else:
-            filter_p.update({cfg_lock_record.lock_field: False})
 
-        # Get
+        # Try find, get and lock for the record
+        filter_tmp = copy.deepcopy(filter_p)
+        filter_tmp.update({cfg_lock_record.lock_field: False})
         data: Optional[dict] = await cls._get_collection().find_one_and_update(
-            filter=filter_p,
-            update={
-                "$set": {
-                    cfg_lock_record.lock_field: True,
-                    cfg_lock_record.lock_field_time_start: l_dt_start,
-                }
-            },
-            return_document=(
-                ReturnDocument.BEFORE
-                if cfg_lock_record.lock_max_period_sec > 0
-                else ReturnDocument.AFTER
-            ),
+            filter=filter_tmp,
+            update=part_update,
+            return_document=ReturnDocument.AFTER
         )
-        if data is None:
-            return
 
-        # Check
-        if cfg_lock_record.lock_max_period_sec > 0:
-            data_obj = cls._create_obj(data)
-            data_l_dt_start: datetime.datetime = getattr(
-                data_obj, cfg_lock_record.lock_field_time_start
-            )
-            if data_l_dt_start is not None:
-                # Ensure TZ is UTC
-                data_l_dt_start = data_l_dt_start.replace(
-                    tzinfo=datetime.timezone.utc
-                )
-                if l_dt_start - data_l_dt_start > datetime.timedelta(
-                    seconds=cfg_lock_record.lock_max_period_sec
-                ):
-                    logger.warning(
-                        "Lock is expired. "
-                        f"ObjectID: {data_obj.id}. "
-                        f"Lock time start: {data_l_dt_start}."
+        # Try find locked the record
+        filter_tmp = copy.deepcopy(filter_p)
+        filter_tmp.update(
+            {
+                cfg_lock_record.lock_field: True,
+                cfg_lock_record.lock_field_time_start: {
+                    "$lt": l_dt_start
+                    - datetime.timedelta(
+                        seconds=cfg_lock_record.lock_max_period_sec
                     )
-            # Get original data
-            data = await cls._get_collection().find_one(
-                filter=CollectionWorker._prepea_filter_get(filter)
+                },
+            }
+        )
+        if data is None and cfg_lock_record.allow_find_locked:
+            data = await cls._get_collection().find_one_and_update(
+                filter=filter_tmp,
+                update=part_update,
+                return_document=ReturnDocument.BEFORE
             )
-            if data is None:
-                raise RuntimeError("Object not found")
+            lock_is_expired = True
+
+        if data is None:
+            if (await cls.exists(**filter)):
+                raise ValueError("The object is locked")
+            # The object not found
+            return None
 
         # Create object
         await cls._rel_get_data(data=data, skip_not_found=skip_not_found)
-        return cls._create_obj(data)
+        obj = cls._create_obj(data)
+        if lock_is_expired:
+            logger.warning(
+                "Lock is expired. "
+                f"ObjectID: {obj.id}. "
+                "Lock time start: "
+                f"{getattr(obj, cfg_lock_record.lock_field_time_start)}."
+            )
+        return obj
 
     async def reset_lock(self):
         """Reset lock"""
@@ -325,14 +321,12 @@ class CollectionWorker(
             else:
                 is_try = True
 
-            # Check the object is exists
-            obj = await cls.exists(**filter)
-            if not obj:
-                raise ValueError("The object not found")
-
-            obj = await cls.get_and_lock(filter=filter)
-            if obj is None:
+            try:
+                obj = await cls.get_and_lock(filter=filter)
+            except ValueError:  # is locked
                 continue
+            if obj is None:
+                raise ValueError("The object not found")
             break
 
         # The object is got and locked
