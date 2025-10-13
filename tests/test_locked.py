@@ -189,7 +189,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await a.save()
 
         try:
-            async with A.get_lock_wait_context(field1="test"):
+            async with A.get_lock_wait_context(filter={"field1": "test"}):
                 # check lock is set
                 a = await A.get(filter={"field1": "test"})
                 self.assertTrue(a.lfield)
@@ -204,7 +204,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_lock_wait_context_06(self):
         """
-        Raise exception in corotine when object is locked
+        Raise exception in coroutine when object is locked
         """
 
         # Add
@@ -215,7 +215,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("Object is locked.")
 
         try:
-            async with A.get_lock_wait_context(field1="test"):
+            async with A.get_lock_wait_context(filter={"field1": "test"}):
                 # check lock is set
                 a = await A.get(filter={"field1": "test"})
                 self.assertTrue(a.lfield)
@@ -223,6 +223,43 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 await test()
         except Exception:
             pass
+
+        # check lock is removed
+        a = await A.get(filter={"field1": "test"})
+        self.assertFalse(a.lfield)
+
+    async def test_get_lock_wait_context_07(self):
+        """
+        Cancel coroutine, when object is locked
+        """
+        event = asyncio.Event()
+
+        # Add
+        a = A(field1="test")
+        await a.save()
+
+        async def test():
+            async with A.get_lock_wait_context(
+                filter={"field1": "test"}, timeout=5
+            ):
+                # check lock is set
+                a = await A.get(filter={"field1": "test"})
+                self.assertTrue(a.lfield)
+
+                event.set()
+                await asyncio.sleep(500000)
+
+        # run coroutine
+        loop = asyncio.get_running_loop()
+        event.clear()
+        task = loop.create_task(test())
+        await event.wait()
+
+        # cancel task
+        task.cancel()
+
+        # return control in loop
+        await asyncio.sleep(0.01)
 
         # check lock is removed
         a = await A.get(filter={"field1": "test"})
