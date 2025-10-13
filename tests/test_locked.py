@@ -6,6 +6,7 @@ from typing import Optional
 
 from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
 from ampo.utils import datetime_utcnow_tz
+from ampo import errors as ampo_errors
 
 
 mongo_url = os.environ.get("TEST_MONGO_URL", None)
@@ -133,7 +134,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await A(field1="test").save()
 
         # Get and lock
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ampo_errors.AmpoDocumentNotFound):
             async with A.get_lock_wait_context(
                 filter={"field1": "aaa"}
             ):
@@ -324,9 +325,9 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.1)
 
         # Don't got
-        with self.assertRaises(ValueError) as err:
+        with self.assertRaises(ampo_errors.AmpoDocumentIsLock) as err:
             obj = await A01.get_and_lock(filter={"field1": "test"})
-        self.assertEqual(err.exception.__str__(), "The object is locked")
+        self.assertEqual(err.exception.__str__(), "The document is locked")
 
         # Manual reset lock
         a.lfield = False
@@ -362,7 +363,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(a.field_dt_start)  # lock start time is set
 
         # Not found
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ampo_errors.AmpoDocumentIsLock):
             b = await A01.get_and_lock(filter={"field1": "test"})
 
         # Unlock
@@ -374,8 +375,8 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(a.lfield, True)  # lock is set
 
                 # Not found
-                with self.assertRaises(ValueError):
-                    b = await A01.get_and_lock(filter={"field1": "test"})
+                with self.assertRaises(ampo_errors.AmpoDocumentIsLock):
+                    await A01.get_and_lock(filter={"field1": "test"})
         self.assertEqual(a.lfield, False)  # lock is unset
 
     async def test_get_and_lock_04(self):

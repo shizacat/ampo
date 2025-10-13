@@ -37,6 +37,7 @@ from .utils import (
     period_check_future,
 )
 from .log import logger
+from . import errors as ampo_errors
 
 
 T = TypeVar("T", bound="CollectionWorker")
@@ -185,7 +186,7 @@ class CollectionWorker(
         """Get and lock the record
 
         Raises:
-            ValueError - if the record not found
+            AmpoDocumentIsLock - if the record is locked
 
         Return
             The record, locked.
@@ -214,29 +215,29 @@ class CollectionWorker(
         )
 
         # Try find locked the record
-        filter_tmp = copy.deepcopy(filter_p)
-        filter_tmp.update(
-            {
-                cfg_lock_record.lock_field: True,
-                cfg_lock_record.lock_field_time_start: {
-                    "$lt": l_dt_start
-                    - datetime.timedelta(
-                        seconds=cfg_lock_record.lock_max_period_sec
-                    )
-                },
-            }
-        )
         if data is None and cfg_lock_record.allow_find_locked:
+            filter_tmp = copy.deepcopy(filter_p)
+            filter_tmp.update(
+                {
+                    cfg_lock_record.lock_field: True,
+                    cfg_lock_record.lock_field_time_start: {
+                        "$lt": l_dt_start
+                        - datetime.timedelta(
+                            seconds=cfg_lock_record.lock_max_period_sec
+                        )
+                    },
+                }
+            )
             data = await cls._get_collection().find_one_and_update(
                 filter=filter_tmp,
                 update=part_update,
-                return_document=ReturnDocument.BEFORE
+                return_document=ReturnDocument.AFTER  # BEFORE
             )
             lock_is_expired = True
 
         if data is None:
             if (await cls.exists(**filter)):
-                raise ValueError("The object is locked")
+                raise ampo_errors.AmpoDocumentIsLock()
             # The object not found
             return None
 
@@ -280,7 +281,11 @@ class CollectionWorker(
     async def get_and_lock_context(
         cls: Type[T], **kwargs: dict
     ) -> AsyncIterator[T]:
-        """Get and lock context"""
+        """Get and lock context
+
+        Raises:
+            AmpoDocumentIsLock - if the record is locked
+        """
         obj = await cls.get_and_lock(filter=kwargs)
         try:
             yield obj
@@ -303,8 +308,8 @@ class CollectionWorker(
             timeout - timeout in seconds, 0 wait forever
 
         Raises:
-            ValueError
             asyncio.TimeoutError
+            AmpoDocumentNotFound
         """
         loop = asyncio.get_running_loop()
 
@@ -323,10 +328,10 @@ class CollectionWorker(
 
             try:
                 obj = await cls.get_and_lock(filter=filter)
-            except ValueError:  # is locked
+            except ampo_errors.AmpoDocumentIsLock:
                 continue
             if obj is None:
-                raise ValueError("The object not found")
+                raise ampo_errors.AmpoDocumentNotFound("The object not found")
             break
 
         # The object is got and locked

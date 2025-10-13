@@ -9,6 +9,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 
 - Added exceptions: AmpoException, AmpoDocumentNotFound, AmpoDocumentIsLock
+- Usage exceptions in the lock functions
 
 
 ## [0.4.3] - 2025-06-05]
