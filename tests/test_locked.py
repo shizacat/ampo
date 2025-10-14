@@ -40,7 +40,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         db = AMPODatabase(url=mongo_url)
         await db._client.drop_database(db._client.get_default_database())
-        # await asyncio.sleep(0.4)
+        # await asyncio.sleep(0)
         return await super().asyncSetUp()
 
     async def asyncTearDown(self) -> None:
@@ -172,7 +172,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(1)
 
         t = asyncio.create_task(lock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
 
         # Get and lock
         async with A.get_lock_wait_context(
@@ -260,7 +260,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         task.cancel()
 
         # return control in loop
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0)
 
         # check lock is removed
         a = await A.get(filter={"field1": "test"})
@@ -281,7 +281,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             datetime_utcnow_tz() - datetime.timedelta(seconds=20)
         )
         await a.save()
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
 
         # Don't got
         obj = await A.get_and_lock(filter={"field1": "test"})
@@ -322,7 +322,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             datetime_utcnow_tz() - datetime.timedelta(seconds=20)
         )
         await a.save()
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
 
         # Don't got
         with self.assertRaises(ampo_errors.AmpoDocumentIsLock) as err:
