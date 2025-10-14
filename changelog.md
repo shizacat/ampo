@@ -8,10 +8,17 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 ## [Unreleased]
 
 
+## [0.5.0] - 2025-10-14]
+
+### Added
 - Added exceptions: AmpoException, AmpoDocumentNotFound, AmpoDocumentIsLock
-- Usage exceptions in the lock functions
-- Add getter/setter for locks in CollectionWorker
+  
+### Changed
 - The function _get_cfg_lock_record, from CollectionWorker, is now usage lru cache
+- The lock methods have been refactored: 
+  - Usage exceptions in the lock functions
+  - Add getter/setter for locks in CollectionWorker
+  - ...
 
 
 ## [0.4.3] - 2025-06-05]
