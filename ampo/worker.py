@@ -205,7 +205,7 @@ class CollectionWorker(
         # Create filter
         filter_p = CollectionWorker._prepea_filter_get(filter)
 
-        # Try find, get and lock for the record
+        # Try to find, receive and lock the record
         filter_tmp = copy.deepcopy(filter_p)
         filter_tmp.update({cfg_lock_record.lock_field: False})
         data: Optional[dict] = await cls._get_collection().find_one_and_update(
@@ -214,7 +214,7 @@ class CollectionWorker(
             return_document=ReturnDocument.AFTER
         )
 
-        # Try find locked the record
+        # Try to find the locked record
         if data is None and cfg_lock_record.allow_find_locked:
             filter_tmp = copy.deepcopy(filter_p)
             filter_tmp.update(
@@ -235,6 +235,7 @@ class CollectionWorker(
             )
             lock_is_expired = True
 
+        # Check, the record exists
         if data is None:
             if (await cls.exists(**filter)):
                 raise ampo_errors.AmpoDocumentIsLock()
@@ -245,16 +246,15 @@ class CollectionWorker(
         await cls._rel_get_data(data=data, skip_not_found=skip_not_found)
         obj = cls._create_obj(data)
         if lock_is_expired:
-            logger.warning(
-                "Lock is expired. "
-                f"ObjectID: {obj.id}. "
-                "Lock time start: "
-                f"{getattr(obj, cfg_lock_record.lock_field_time_start)}."
-            )
+            logger.warning(f"Lock is expired. ObjectID: {obj.id}.")
         return obj
 
     async def reset_lock(self):
-        """Reset lock"""
+        """Reset lock
+
+        Raises:
+            ValueError - if the object don't saved
+        """
         # check lock-record is enabled
         cfg_lock_record = self._get_cfg_lock_record()
         # check object is saved
