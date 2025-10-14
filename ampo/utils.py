@@ -87,6 +87,14 @@ class ORMLockRecord(BaseModel):
         ),
     )
 
+    @property
+    def allow_find_locked(self) -> bool:
+        """
+        Return
+            True if the find for locked records is allowed.
+        """
+        return self.lock_max_period_sec > 0
+
 
 class ORMHooks(BaseModel):
     """

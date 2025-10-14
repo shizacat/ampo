@@ -6,6 +6,7 @@ from typing import Optional
 
 from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
 from ampo.utils import datetime_utcnow_tz
+from ampo import errors as ampo_errors
 
 
 mongo_url = os.environ.get("TEST_MONGO_URL", None)
@@ -39,7 +40,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         db = AMPODatabase(url=mongo_url)
         await db._client.drop_database(db._client.get_default_database())
-        # await asyncio.sleep(0.4)
+        # await asyncio.sleep(0)
         return await super().asyncSetUp()
 
     async def asyncTearDown(self) -> None:
@@ -133,7 +134,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await A(field1="test").save()
 
         # Get and lock
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ampo_errors.AmpoDocumentNotFound):
             async with A.get_lock_wait_context(
                 filter={"field1": "aaa"}
             ):
@@ -171,7 +172,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(1)
 
         t = asyncio.create_task(lock())
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
 
         # Get and lock
         async with A.get_lock_wait_context(
@@ -189,7 +190,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         await a.save()
 
         try:
-            async with A.get_lock_wait_context(field1="test"):
+            async with A.get_lock_wait_context(filter={"field1": "test"}):
                 # check lock is set
                 a = await A.get(filter={"field1": "test"})
                 self.assertTrue(a.lfield)
@@ -204,7 +205,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_lock_wait_context_06(self):
         """
-        Raise exception in corotine when object is locked
+        Raise exception in coroutine when object is locked
         """
 
         # Add
@@ -215,7 +216,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("Object is locked.")
 
         try:
-            async with A.get_lock_wait_context(field1="test"):
+            async with A.get_lock_wait_context(filter={"field1": "test"}):
                 # check lock is set
                 a = await A.get(filter={"field1": "test"})
                 self.assertTrue(a.lfield)
@@ -223,6 +224,43 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 await test()
         except Exception:
             pass
+
+        # check lock is removed
+        a = await A.get(filter={"field1": "test"})
+        self.assertFalse(a.lfield)
+
+    async def test_get_lock_wait_context_07(self):
+        """
+        Cancel coroutine, when object is locked
+        """
+        event = asyncio.Event()
+
+        # Add
+        a = A(field1="test")
+        await a.save()
+
+        async def test():
+            async with A.get_lock_wait_context(
+                filter={"field1": "test"}, timeout=5
+            ):
+                # check lock is set
+                a = await A.get(filter={"field1": "test"})
+                self.assertTrue(a.lfield)
+
+                event.set()
+                await asyncio.sleep(500000)
+
+        # run coroutine
+        loop = asyncio.get_running_loop()
+        event.clear()
+        task = loop.create_task(test())
+        await event.wait()
+
+        # cancel task
+        task.cancel()
+
+        # return control in loop
+        await asyncio.sleep(0)
 
         # check lock is removed
         a = await A.get(filter={"field1": "test"})
@@ -243,7 +281,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
             datetime_utcnow_tz() - datetime.timedelta(seconds=20)
         )
         await a.save()
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
 
         # Don't got
         obj = await A.get_and_lock(filter={"field1": "test"})
@@ -284,11 +322,12 @@ class Main(unittest.IsolatedAsyncioTestCase):
             datetime_utcnow_tz() - datetime.timedelta(seconds=20)
         )
         await a.save()
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
 
         # Don't got
-        obj = await A01.get_and_lock(filter={"field1": "test"})
-        self.assertIsNone(obj)
+        with self.assertRaises(ampo_errors.AmpoDocumentIsLock) as err:
+            obj = await A01.get_and_lock(filter={"field1": "test"})
+        self.assertEqual(err.exception.__str__(), "The document is locked")
 
         # Manual reset lock
         a.lfield = False
@@ -324,8 +363,8 @@ class Main(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(a.field_dt_start)  # lock start time is set
 
         # Not found
-        b = await A01.get_and_lock(filter={"field1": "test"})
-        self.assertIsNone(b)
+        with self.assertRaises(ampo_errors.AmpoDocumentIsLock):
+            b = await A01.get_and_lock(filter={"field1": "test"})
 
         # Unlock
         await a.reset_lock()
@@ -336,8 +375,8 @@ class Main(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(a.lfield, True)  # lock is set
 
                 # Not found
-                b = await A01.get_and_lock(filter={"field1": "test"})
-                self.assertIsNone(b)
+                with self.assertRaises(ampo_errors.AmpoDocumentIsLock):
+                    await A01.get_and_lock(filter={"field1": "test"})
         self.assertEqual(a.lfield, False)  # lock is unset
 
     async def test_get_and_lock_04(self):
