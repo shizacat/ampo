@@ -308,6 +308,7 @@ class CollectionWorker(
             AmpoDocumentNotFound
         """
         loop = asyncio.get_running_loop()
+        obj: Optional[T] = None
 
         int_up = 0.5  # check every 0.5 seconds
         is_try = False
@@ -324,18 +325,17 @@ class CollectionWorker(
 
             try:
                 obj = await cls.get_and_lock(filter=filter)
+                if obj is None:
+                    raise ampo_errors.AmpoDocumentNotFound(
+                        "The object not found")
+                # The object is got and locked
+                yield obj
             except ampo_errors.AmpoDocumentIsLock:
                 continue
-            if obj is None:
-                raise ampo_errors.AmpoDocumentNotFound("The object not found")
+            finally:
+                if obj is not None:
+                    await obj.reset_lock()
             break
-
-        # The object is got and locked
-        try:
-            yield obj
-        finally:
-            if obj is not None:
-                await obj.reset_lock()
 
     @classmethod
     def expiration_index_update(cls: Type[T], field: str, expire_seconds: int):
