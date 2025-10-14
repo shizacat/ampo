@@ -193,13 +193,12 @@ class CollectionWorker(
             The record, locked.
             None if record not exists
         """
-        cfg_lock_record = cls._get_cfg_lock_record()
         l_dt_start = datetime_utcnow_tz()
         lock_is_expired: bool = False
         part_update = {
             "$set": {
-                cfg_lock_record.lock_field: True,
-                cfg_lock_record.lock_field_time_start: l_dt_start,
+                cls._get_cfg_lock_record().lock_field: True,
+                cls._get_cfg_lock_record().lock_field_time_start: l_dt_start,
             }
         }
 
@@ -208,7 +207,7 @@ class CollectionWorker(
 
         # Try to find, receive and lock the record
         filter_tmp = copy.deepcopy(filter_p)
-        filter_tmp.update({cfg_lock_record.lock_field: False})
+        filter_tmp.update({cls._get_cfg_lock_record().lock_field: False})
         data: Optional[dict] = await cls._get_collection().find_one_and_update(
             filter=filter_tmp,
             update=part_update,
@@ -216,15 +215,15 @@ class CollectionWorker(
         )
 
         # Try to find the locked record
-        if data is None and cfg_lock_record.allow_find_locked:
+        if data is None and cls._get_cfg_lock_record().allow_find_locked:
             filter_tmp = copy.deepcopy(filter_p)
             filter_tmp.update(
                 {
-                    cfg_lock_record.lock_field: True,
-                    cfg_lock_record.lock_field_time_start: {
+                    cls._get_cfg_lock_record().lock_field: True,
+                    cls._get_cfg_lock_record().lock_field_time_start: {
                         "$lt": l_dt_start
                         - datetime.timedelta(
-                            seconds=cfg_lock_record.lock_max_period_sec
+                            seconds=cls._get_cfg_lock_record().lock_max_period_sec  # noqa: E501
                         )
                     },
                 }
@@ -256,23 +255,19 @@ class CollectionWorker(
         Raises:
             ValueError - if the object don't saved
         """
-        # check lock-record is enabled
-        cfg_lock_record = self._get_cfg_lock_record()
         # check object is saved
         if self._id is None:
             raise ValueError("Not saved")
 
-        # update field
-        setattr(self, cfg_lock_record.lock_field, False)
+        # update lock field
+        self.lock_field = False
 
         # update document
         await self._get_collection().update_one(
             filter=CollectionWorker._prepea_filter_get({"_id": self._id}),
             update={
                 "$set": {
-                    cfg_lock_record.lock_field: getattr(
-                        self, cfg_lock_record.lock_field
-                    )
+                    self._get_cfg_lock_record().lock_field: self.lock_field
                 }
             },
         )
