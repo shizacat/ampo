@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import functools
 import typing
 from contextlib import asynccontextmanager
 import datetime
@@ -451,6 +452,36 @@ class CollectionWorker(
             return
         return str(self._id)
 
+    @property
+    def lock_field(self) -> bool:
+        """
+        Return value of lock field state
+        """
+        return getattr(self, self._get_cfg_lock_record().lock_field)
+
+    @lock_field.setter
+    def lock_field(self, value: bool):
+        """
+        Setter for lock field state
+        """
+        if not isinstance(value, bool):
+            raise TypeError("Got not bool")
+        setattr(self, self._get_cfg_lock_record().lock_field, value)
+
+    @property
+    def lock_field_time_start(self) -> datetime.datetime:
+        """
+        Return value of lock field time start
+        """
+        cfg_lock_record = self._get_cfg_lock_record()
+        return getattr(self, cfg_lock_record.lock_field_time_start)
+
+    @lock_field_time_start.setter
+    def lock_field_time_start(self, value: datetime.datetime):
+        if not isinstance(value, datetime.datetime):
+            raise TypeError("Got not datetime")
+        setattr(self, self._get_cfg_lock_record().lock_field_time_start, value)
+
     # ___ Private methods ___
 
     async def _run_hooks(self, hook_name: str, context: Optional[dict] = None):
@@ -606,6 +637,7 @@ class CollectionWorker(
         )
 
     @classmethod
+    @functools.lru_cache(maxsize=None)
     def _get_cfg_lock_record(cls) -> ORMLockRecord:
         """Get cfg lock record"""
         cfg_lock_record: Optional[dict] = cls.model_config.get(
