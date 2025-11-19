@@ -240,3 +240,112 @@ async def test_inheritance_worker_index(ampo_db: AMPODatabase):
     with pytest.raises(pymongo.errors.DuplicateKeyError):
         b2 = B(f1="test2")
         await b2.save()
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_save_bulk_01(ampo_db: AMPODatabase):
+    """
+    Check errors
+    """
+    class TestWorker(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="test",
+        )
+
+        field1: str = "test"
+
+    # Don't valid type
+    with pytest.raises(ValueError):
+        await TestWorker.save_bulk(items=[12])
+    # Not equal context
+    with pytest.raises(ValueError):
+        await TestWorker.save_bulk(
+            items=[TestWorker(field1="test")], contexts=[])
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_save_bulk_02(ampo_db: AMPODatabase):
+    """
+    Check only insert
+    """
+    class TestWorker(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="test",
+        )
+
+        field1: str = "test"
+
+    # insert 10
+    await TestWorker.save_bulk(
+        items=[TestWorker(field1="test") for _ in range(10)]
+    )
+    # check
+    assert len(await TestWorker.get_all()) == 10
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_save_bulk_03(ampo_db: AMPODatabase):
+    """
+    Check only insert and hooks run
+    """
+    presave_count = 0
+    postsave_count = 0
+
+    async def presave(obj, context: dict):
+        nonlocal presave_count
+        presave_count += context["i"]
+
+    async def postsave(obj, context: dict):
+        nonlocal postsave_count
+        postsave_count += context["i"]
+
+    class TestWorker(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="test",
+            orm_hooks={
+                "pre_save": [presave],
+                "post_save": [postsave]
+            }
+        )
+
+        field1: str = "test"
+
+    # insert 10
+    await TestWorker.save_bulk(
+        items=[TestWorker(field1="test") for _ in range(10)],
+        contexts=[{"i": idx} for idx in range(10)]
+    )
+    # check
+    assert len(await TestWorker.get_all()) == 10
+    assert presave_count == 45
+    assert postsave_count == 45
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_save_bulk_04(ampo_db: AMPODatabase):
+    """
+    Check only update
+    """
+    class TestWorker(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="test",
+        )
+
+        field1: str = "test"
+
+    # insert 10
+    data = [TestWorker(field1="test") for _ in range(10)]
+    for item in data:
+        await item.save()
+    # check
+    assert len(await TestWorker.get_all()) == 10
+
+    # udpate
+    await TestWorker.save_bulk(data)
+
+    # check
+    assert len(await TestWorker.get_all()) == 10
