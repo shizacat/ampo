@@ -12,16 +12,17 @@ from typing import (
     Union,
     Tuple,
     AsyncIterator,
+    AsyncGenerator,
     get_origin,
     get_args,
 )
-from typing_extensions import Annotated, TypeAliasType
+from typing_extensions import Annotated, TypeAliasType, Any
 import sys
 
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel, field_validator
 from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
@@ -63,6 +64,20 @@ else:
     )
 
 
+# class CollectionBulk(RootModel):
+#     """
+#     Base class for bulk operations
+#     """
+#     root = list["CollectionWorker"]
+
+#     @field_validator("root")
+#     @classmethod
+#     def validate_all_item(cls, v: List[Any]) -> List["CollectionWorker"]:
+#         if not all(isinstance(item, CollectionWorker) for item in v):
+#             raise ValueError("All items must be CollectionWorker instances")
+#         return v
+
+
 class CollectionWorker(
     BaseModel,
     # Config default model, from metaclass
@@ -87,19 +102,64 @@ class CollectionWorker(
         """
         collection = self._get_collection()
 
-        await self._run_hooks("pre_save", context)
+        async with self._save_process(context) as model_dump:
+            if self._id is None:
+                # insert
+                result = await collection.insert_one(model_dump)
+                self._id = result.inserted_id
+            else:
+                # update
+                await collection.replace_one({"_id": self._id}, model_dump)
+                # TODO: Not shure what better
+                # await collection.update_one(
+                #     {"_id": self._id}, {"$set": model_dump}, upsert=False)
 
-        if self._id is None:
-            # insert
-            result = await collection.insert_one(self.model_dump())
-            self._id = result.inserted_id
-        else:
-            # update
-            await collection.replace_one({"_id": self._id}, self.model_dump())
-            # TODO: Not shure what better
-            # await collection.update_one(
-            #     {"_id": self._id}, {"$set": self.model_dump()}, upsert=False)
-        await self._run_hooks("post_save", context)
+    @classmethod
+    async def save_bulk(
+        self,
+        items: list[T],
+        contexts: Optional[list[dict]] = None
+    ):
+        """
+        Save many objects
+        TODO: Add annottaion on General
+
+        Return
+
+        """
+        collection = self._get_collection()
+
+        # assert
+        if not all(isinstance(item, CollectionWorker) for item in items):
+            raise ValueError("All items must be CollectionWorker instances")
+        if contexts is not None and len(items) != len(contexts):
+            raise ValueError("The length items and contexts don't equal")
+
+        # split insert/update
+        linsert: list[tuple] = []
+        lupdate: list = []
+        for idx, item in enumerate(items):
+            if item._id is None:
+                context = None if contexts is None else contexts[idx]
+                linsert.append((item, item._save_process(context)))
+            else:
+                lupdate.append(item)
+
+        # insert many
+        if linsert:
+            result = await collection.insert_many([
+                await cmanager.__aenter__() for item, cmanager in linsert
+            ])
+            for idx, inserted_id in enumerate(result.inserted_ids):
+                linsert[idx][0]._id = inserted_id
+
+            # run post hook for insert
+            for item, cmanager in linsert:
+                await cmanager.__aexit__(None, None, None)
+
+        # update many
+        for item in lupdate:
+            await item.save()
 
     @classmethod
     async def get(
@@ -490,6 +550,20 @@ class CollectionWorker(
 
         for hook in hooks:
             await hook(self, context)
+
+    @asynccontextmanager
+    async def _save_process(
+        self, context: Optional[dict] = None
+    ) -> AsyncGenerator[dict, None]:
+        """
+        Handling save objects, it will not touch the database
+
+        Return
+            model dump for insert to db
+        """
+        await self._run_hooks("pre_save", context)
+        yield self.model_dump()
+        await self._run_hooks("post_save", context)
 
     @classmethod
     def _rel_get_fields(
