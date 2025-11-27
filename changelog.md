@@ -8,6 +8,10 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 ## [Unreleased]
 
 
+### Changed
+- Improved the annotation of motor objects.
+
+
 ## [0.5.0] - 2025-10-14]
 
 ### Added

@@ -22,6 +22,7 @@ import sys
 import bson.son
 from bson import ObjectId
 from motor import motor_asyncio
+from motor import core as motor_core
 from pydantic import BaseModel, Field, RootModel, field_validator
 from pymongo import IndexModel, ReturnDocument
 
@@ -694,7 +695,7 @@ class CollectionWorker(
         return result
 
     @classmethod
-    def _get_collection(cls) -> motor_asyncio.AsyncIOMotorCollection:
+    def _get_collection(cls) -> motor_core.AgnosticCollection:
         """Return collection"""
         return (
             AMPODatabase()

@@ -2,6 +2,7 @@ from typing import Optional
 
 from motor import motor_asyncio
 from pymongo.database import Database
+from motor import core as motor_core
 
 
 class SingletonMeta(type):
@@ -33,12 +34,12 @@ class AMPODatabase(metaclass=SingletonMeta):
             url : str
                 URL for connect to mongodb
         """
-        self._client: Optional[motor_asyncio.AsyncIOMotorClient] = None
+        self._client: Optional[motor_core.AgnosticClient] = None
         self._db: Optional[Database] = None
 
         # Connect
         self._client = motor_asyncio.AsyncIOMotorClient(url)
         self._db = self._client.get_default_database()
 
-    def get_db(self) -> motor_asyncio.AsyncIOMotorDatabase:
+    def get_db(self) -> motor_core.AgnosticDatabase:
         return self._db
