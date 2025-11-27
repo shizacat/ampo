@@ -12,6 +12,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Improved the annotation of motor objects.
 - The method CollectionWorker._get_collection has been deprecated. Please use the new method "CollectionWorker.collection".
 - Drop support python 3.8
+- The minimum version of pydantic required is 2.8.
 
 
 ## [0.5.0] - 2025-10-14]

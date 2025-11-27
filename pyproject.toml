@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
   'motor>=3.2',
-  'pydantic>=2.0',
+  'pydantic>=2.8',
 ]
 
 [project.urls]
