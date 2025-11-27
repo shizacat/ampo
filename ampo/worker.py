@@ -66,20 +66,6 @@ else:
     )
 
 
-# class CollectionBulk(RootModel):
-#     """
-#     Base class for bulk operations
-#     """
-#     root = list["CollectionWorker"]
-
-#     @field_validator("root")
-#     @classmethod
-#     def validate_all_item(cls, v: List[Any]) -> List["CollectionWorker"]:
-#         if not all(isinstance(item, CollectionWorker) for item in v):
-#             raise ValueError("All items must be CollectionWorker instances")
-#         return v
-
-
 class CollectionWorker(
     BaseModel,
     # Config default model, from metaclass
@@ -102,16 +88,15 @@ class CollectionWorker(
         If the object exists into db, then the object will be replace.
         This is will checked by '_id' field.
         """
-        collection = self.collection()
-
         async with self._save_process(context) as model_dump:
             if self._id is None:
                 # insert
-                result = await collection.insert_one(model_dump)
+                result = await self.collection().insert_one(model_dump)
                 self._id = result.inserted_id
             else:
                 # update
-                await collection.replace_one({"_id": self._id}, model_dump)
+                await self.collection().replace_one(
+                    {"_id": self._id}, model_dump)
                 # TODO: Not shure what better
                 # await collection.update_one(
                 #     {"_id": self._id}, {"$set": model_dump}, upsert=False)
@@ -129,8 +114,6 @@ class CollectionWorker(
         Return
 
         """
-        collection = self.collection()
-
         # assert
         if not all(isinstance(item, CollectionWorker) for item in items):
             raise ValueError("All items must be CollectionWorker instances")
@@ -139,7 +122,7 @@ class CollectionWorker(
 
         # split insert/update
         linsert: list[tuple] = []
-        lupdate: list = []
+        lupdate: list[T] = []
         for idx, item in enumerate(items):
             if item._id is None:
                 context = None if contexts is None else contexts[idx]
@@ -149,7 +132,7 @@ class CollectionWorker(
 
         # insert many
         if linsert:
-            result = await collection.insert_many([
+            result = await self.collection().insert_many([
                 await cmanager.__aenter__() for item, cmanager in linsert
             ])
             for idx, inserted_id in enumerate(result.inserted_ids):
@@ -173,9 +156,7 @@ class CollectionWorker(
         """
         Get one object from database
         """
-        collection = cls.collection()
-
-        data = await collection.find_one(
+        data = await cls.collection().find_one(
             filter=CollectionWorker._prepea_filter_get(filter),
             **kwargs
         )
@@ -204,9 +185,7 @@ class CollectionWorker(
         """
         result = []
 
-        collection = cls.collection()
-
-        data = await collection.find(
+        data = await cls.collection().find(
             filter=CollectionWorker._prepea_filter_get(filter), **kwargs
         ).to_list(None)
         for d in data:
@@ -214,17 +193,32 @@ class CollectionWorker(
             result.append(cls._create_obj(d))
         return result
 
+    @classmethod
+    async def get_all_cursor(
+        cls: Type[T],
+        filter: Optional[dict] = None,
+        skip_not_found: bool = False,
+        **kwargs
+    ) -> AsyncGenerator[T, None]:
+        """
+        Search all object by filter.
+        Usage cursor
+        """
+        async for item in cls.collection().find(
+            filter=CollectionWorker._prepea_filter_get(filter), **kwargs
+        ):
+            await cls._rel_get_data(data=item, skip_not_found=skip_not_found)
+            yield cls._create_obj(item)
+
     async def delete(self, context: Optional[dict] = None):
         """
         Delete object from database
         """
-        collection = self.collection()
-
         await self._run_hooks("pre_delete", context)
 
         if self._id is None:
             raise ValueError("Object not created")
-        await collection.delete_one({"_id": self._id})
+        await self.collection().delete_one({"_id": self._id})
 
         await self._run_hooks("post_delete", context)
 

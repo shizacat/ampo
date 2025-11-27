@@ -349,3 +349,26 @@ async def test_save_bulk_04(ampo_db: AMPODatabase):
 
     # check
     assert len(await TestWorker.get_all()) == 10
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_get_all_cm_01(ampo_db: AMPODatabase):
+    """
+    Get data
+    """
+    class TestWorker(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="test",
+        )
+
+        field1: str = "test"
+
+    # insert 10
+    await TestWorker.save_bulk(
+        items=[TestWorker(field1=f"test{i}") for i in range(10)]
+    )
+    # check
+    async for tw in TestWorker.get_all_cursor():
+        assert isinstance(tw, TestWorker)
+        assert tw.field1[:4] == "test"
