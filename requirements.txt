@@ -1,4 +1,4 @@
 motor>=3.2
-pydantic>=2.0
+pydantic>=2.8
 # 4.13 Fix Bug, but it usage
 typing_extensions==4.12
