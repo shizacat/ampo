@@ -16,6 +16,7 @@ from typing import (
     get_origin,
     get_args,
 )
+import warnings
 from typing_extensions import Annotated, TypeAliasType, Any
 import sys
 
@@ -101,7 +102,7 @@ class CollectionWorker(
         If the object exists into db, then the object will be replace.
         This is will checked by '_id' field.
         """
-        collection = self._get_collection()
+        collection = self.collection()
 
         async with self._save_process(context) as model_dump:
             if self._id is None:
@@ -128,7 +129,7 @@ class CollectionWorker(
         Return
 
         """
-        collection = self._get_collection()
+        collection = self.collection()
 
         # assert
         if not all(isinstance(item, CollectionWorker) for item in items):
@@ -172,7 +173,7 @@ class CollectionWorker(
         """
         Get one object from database
         """
-        collection = cls._get_collection()
+        collection = cls.collection()
 
         data = await collection.find_one(
             filter=CollectionWorker._prepea_filter_get(filter),
@@ -203,7 +204,7 @@ class CollectionWorker(
         """
         result = []
 
-        collection = cls._get_collection()
+        collection = cls.collection()
 
         data = await collection.find(
             filter=CollectionWorker._prepea_filter_get(filter), **kwargs
@@ -217,7 +218,7 @@ class CollectionWorker(
         """
         Delete object from database
         """
-        collection = self._get_collection()
+        collection = self.collection()
 
         await self._run_hooks("pre_delete", context)
 
@@ -230,7 +231,7 @@ class CollectionWorker(
     @classmethod
     async def count(cls: Type[T], **kwargs) -> int:
         """Return count of objects"""
-        return await cls._get_collection().count_documents(
+        return await cls.collection().count_documents(
             CollectionWorker._prepea_filter_get(kwargs)
         )
 
@@ -269,7 +270,7 @@ class CollectionWorker(
         # Try to find, receive and lock the record
         filter_tmp = copy.deepcopy(filter_p)
         filter_tmp.update({cls._get_cfg_lock_record().lock_field: False})
-        data: Optional[dict] = await cls._get_collection().find_one_and_update(
+        data: Optional[dict] = await cls.collection().find_one_and_update(
             filter=filter_tmp,
             update=part_update,
             return_document=ReturnDocument.AFTER
@@ -289,7 +290,7 @@ class CollectionWorker(
                     },
                 }
             )
-            data = await cls._get_collection().find_one_and_update(
+            data = await cls.collection().find_one_and_update(
                 filter=filter_tmp,
                 update=part_update,
                 return_document=ReturnDocument.AFTER  # BEFORE
@@ -324,7 +325,7 @@ class CollectionWorker(
         self.lock_field = False
 
         # update document
-        await self._get_collection().update_one(
+        await self.collection().update_one(
             filter=CollectionWorker._prepea_filter_get({"_id": self._id}),
             update={
                 "$set": {
@@ -538,6 +539,18 @@ class CollectionWorker(
             raise TypeError("Got not datetime")
         setattr(self, self._get_cfg_lock_record().lock_field_time_start, value)
 
+    @classmethod
+    def collection(cls) -> motor_core.AgnosticCollection:
+        """Return collection"""
+        return (
+            AMPODatabase()
+            .get_db()
+            .get_collection(
+                cls.model_config[cfg_orm_collection],
+                codec_options=cls.model_config.get(cfg_orm_bson_codec_options),
+            )
+        )
+
     # ___ Private methods ___
 
     async def _run_hooks(self, hook_name: str, context: Optional[dict] = None):
@@ -697,14 +710,10 @@ class CollectionWorker(
     @classmethod
     def _get_collection(cls) -> motor_core.AgnosticCollection:
         """Return collection"""
-        return (
-            AMPODatabase()
-            .get_db()
-            .get_collection(
-                cls.model_config[cfg_orm_collection],
-                codec_options=cls.model_config.get(cfg_orm_bson_codec_options),
-            )
+        warnings.warn(
+            "This method is deprecated. Instead, use the 'collection' method."
         )
+        return cls.collection()
 
     @classmethod
     @functools.lru_cache(maxsize=None)
@@ -775,7 +784,7 @@ async def init_collection():
     - Create indexies
     """
     for cls in CollectionWorker._subclasses_all():
-        collection = cls._get_collection()
+        collection = cls.collection()
 
         # Indexes process
         for index_raw in cls.model_config.get(cfg_orm_indexes, []):

@@ -291,7 +291,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
         await init_collection()
 
-        collecton = B._get_collection()
+        collecton = B.collection()
         index_info = await collecton.index_information()
         self.assertTrue("field7_1" not in index_info.keys())
 
@@ -316,7 +316,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
             field8: datetime.datetime
 
-        collecton = B._get_collection()
+        collecton = B.collection()
         # Skip
         await init_collection()
         index_info = await collecton.index_information()
@@ -353,7 +353,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
             field8: datetime.datetime
 
-        collecton = B._get_collection()
+        collecton = B.collection()
 
         # Index don't need created
         B.expiration_index_skip("field9")
@@ -382,7 +382,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
 
             field8: datetime.datetime
 
-        collecton = B._get_collection()
+        collecton = B.collection()
 
         # Create
         index_info = await collecton.index_information()
