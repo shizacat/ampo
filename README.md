@@ -6,7 +6,7 @@ Features:
 - Many to many relationships
 - One to many relationships
 - Support MongoDB from 4.2
-- Python 3.8+
+- Python 3.9+
 
 
 # Usage
