@@ -17,14 +17,13 @@ from typing import (
     get_args,
 )
 import warnings
-from typing_extensions import Annotated, TypeAliasType, Any
+from typing_extensions import Annotated, TypeAliasType, Any, Self
 import sys
 
 import bson.son
 from bson import ObjectId
-from motor import motor_asyncio
 from motor import core as motor_core
-from pydantic import BaseModel, Field, RootModel, field_validator
+from pydantic import BaseModel, Field
 from pymongo import IndexModel, ReturnDocument
 
 from .db import AMPODatabase
@@ -68,6 +67,7 @@ else:
 
 class CollectionWorker(
     BaseModel,
+    # Generic[T],
     # Config default model, from metaclass
     validate_assignment=True,
     validate_default=True,
@@ -103,26 +103,24 @@ class CollectionWorker(
 
     @classmethod
     async def save_bulk(
-        self,
-        items: list[T],
+        cls,
+        items: list[Self],
         contexts: Optional[list[dict]] = None
     ):
         """
         Save many objects
-        TODO: Add annottaion on General
 
         Return
-
         """
         # assert
-        if not all(isinstance(item, CollectionWorker) for item in items):
-            raise ValueError("All items must be CollectionWorker instances")
+        if not all(isinstance(item, cls) for item in items):
+            raise ValueError(f"All items must be {cls.__name__} instances")
         if contexts is not None and len(items) != len(contexts):
             raise ValueError("The length items and contexts don't equal")
 
         # split insert/update
         linsert: list[tuple] = []
-        lupdate: list[T] = []
+        lupdate: list[Self] = []
         for idx, item in enumerate(items):
             if item._id is None:
                 context = None if contexts is None else contexts[idx]
@@ -132,7 +130,7 @@ class CollectionWorker(
 
         # insert many
         if linsert:
-            result = await self.collection().insert_many([
+            result = await cls.collection().insert_many([
                 await cmanager.__aenter__() for item, cmanager in linsert
             ])
             for idx, inserted_id in enumerate(result.inserted_ids):
@@ -148,16 +146,16 @@ class CollectionWorker(
 
     @classmethod
     async def get(
-        cls: Type[T],
+        cls: Type[Self],
         filter: Optional[dict] = None,
         skip_not_found: bool = False,
         **kwargs
-    ) -> Optional[T]:
+    ) -> Optional[Self]:
         """
         Get one object from database
         """
         data = await cls.collection().find_one(
-            filter=CollectionWorker._prepea_filter_get(filter),
+            filter=cls._prepea_filter_get(filter),
             **kwargs
         )
         if data is None:
@@ -167,11 +165,11 @@ class CollectionWorker(
 
     @classmethod
     async def get_all(
-        cls: Type[T],
+        cls: Type[Self],
         filter: Optional[dict] = None,
         skip_not_found: bool = False,
         **kwargs
-    ) -> List[T]:
+    ) -> List[Self]:
         """
         Search all object by filter.
 
@@ -195,11 +193,11 @@ class CollectionWorker(
 
     @classmethod
     async def get_all_cursor(
-        cls: Type[T],
+        cls: Type[Self],
         filter: Optional[dict] = None,
         skip_not_found: bool = False,
         **kwargs
-    ) -> AsyncGenerator[T, None]:
+    ) -> AsyncGenerator[Self, None]:
         """
         Search all object by filter.
         Usage cursor
@@ -223,23 +221,23 @@ class CollectionWorker(
         await self._run_hooks("post_delete", context)
 
     @classmethod
-    async def count(cls: Type[T], **kwargs) -> int:
+    async def count(cls: Type[Self], **kwargs) -> int:
         """Return count of objects"""
         return await cls.collection().count_documents(
             CollectionWorker._prepea_filter_get(kwargs)
         )
 
     @classmethod
-    async def exists(cls: Type[T], **kwargs) -> bool:
+    async def exists(cls: Type[Self], **kwargs) -> bool:
         """Return True if exists object"""
         return await cls.count(**kwargs) > 0
 
     @classmethod
     async def get_and_lock(
-        cls: Type[T],
+        cls: Type[Self],
         filter: Optional[dict] = None,
         skip_not_found: bool = False,
-    ) -> Optional[T]:
+    ) -> Optional[Self]:
         """Get and lock the record
 
         Raises:
@@ -331,8 +329,8 @@ class CollectionWorker(
     @classmethod
     @asynccontextmanager
     async def get_and_lock_context(
-        cls: Type[T], **kwargs: dict
-    ) -> AsyncIterator[T]:
+        cls: Type[Self], **kwargs: dict
+    ) -> AsyncIterator[Self]:
         """Get and lock context
 
         Raises:
@@ -348,7 +346,7 @@ class CollectionWorker(
     @classmethod
     @asynccontextmanager
     async def get_lock_wait_context(
-        cls: Type[T], filter: dict, timeout: float = 5
+        cls: Type[Self], filter: dict, timeout: float = 5
     ):
         """
         Get object if it is not locked, otherwise wait until it is unlocked
@@ -364,7 +362,7 @@ class CollectionWorker(
             AmpoDocumentNotFound
         """
         loop = asyncio.get_running_loop()
-        obj: Optional[T] = None
+        obj: Optional[Self] = None
 
         int_up = 0.5  # check every 0.5 seconds
         is_try = False
@@ -394,7 +392,9 @@ class CollectionWorker(
             break
 
     @classmethod
-    def expiration_index_update(cls: Type[T], field: str, expire_seconds: int):
+    def expiration_index_update(
+        cls: Type[Self], field: str, expire_seconds: int
+    ):
         """Update expire index for collections by field name
 
         Parameters
@@ -413,7 +413,7 @@ class CollectionWorker(
         raise ValueError(f"The index by '{field}' not found")
 
     @classmethod
-    def expiration_index_skip(cls: Type[T], field: str):
+    def expiration_index_skip(cls: Type[Self], field: str):
         """Skip index for collections by field name
 
         Parameters
@@ -690,7 +690,7 @@ class CollectionWorker(
             data[fname] = otm_obj
 
     @classmethod
-    def _create_obj(cls, data: dict) -> "CollectionWorker":
+    def _create_obj(cls, data: dict) -> Self:
         """
         Create object from database data
         """
