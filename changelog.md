@@ -9,6 +9,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ### Added
 - Added the new method 'CollectionWorker.get_all_cursor'.
+- Added the new method "CollectionWorker.collection".
 
 ### Changed
 - Improved the annotation of motor objects.
