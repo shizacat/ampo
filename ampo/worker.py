@@ -25,6 +25,7 @@ from bson import ObjectId
 from motor import core as motor_core
 from pydantic import BaseModel, Field
 from pymongo import IndexModel, ReturnDocument
+from bson.codec_options import CodecOptions
 
 from .db import AMPODatabase
 from .utils import (
@@ -541,7 +542,7 @@ class CollectionWorker(
             .get_db()
             .get_collection(
                 cls.model_config[cfg_orm_collection],
-                codec_options=cls.model_config.get(cfg_orm_bson_codec_options),
+                codec_options=cls._get_codec_options(),
             )
         )
 
@@ -708,6 +709,18 @@ class CollectionWorker(
             "This method is deprecated. Instead, use the 'collection' method."
         )
         return cls.collection()
+
+    @classmethod
+    def _get_codec_options(cls) -> CodecOptions:
+        """
+        Retrun codec options
+        """
+        codec_options = cls.model_config.get(cfg_orm_bson_codec_options)
+        if codec_options is None:
+            codec_options = CodecOptions()
+        # Always return the time zone value for the timestamp field
+        codec_options = codec_options._replace(tz_aware=True)
+        return codec_options
 
     @classmethod
     @functools.lru_cache(maxsize=None)

@@ -16,6 +16,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Drop support python 3.8
 - The minimum version of pydantic required is 2.8.
 - Update annotation class CollectionWorker
+- The CollectionWorker always returns a timestamp with timezone awareness
 
 
 ## [0.5.0] - 2025-10-14]

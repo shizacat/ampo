@@ -1,11 +1,14 @@
 import os
+import datetime
 from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
 import pymongo.errors
+from pydantic import Field
 
 from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
+from ampo.utils import datetime_utcnow_tz
 
 
 # Configure
@@ -372,3 +375,26 @@ async def test_get_all_cm_01(ampo_db: AMPODatabase):
     async for tw in TestWorker.get_all_cursor():
         assert isinstance(tw, TestWorker)
         assert tw.field1[:4] == "test"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_get_01(ampo_db: AMPODatabase):
+    """
+    Check tz info
+    """
+    class TestWorker(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="test",
+        )
+
+        field1: datetime.datetime = Field(default_factory=datetime_utcnow_tz)
+
+    # insert
+    a = TestWorker()
+    await a.save()
+
+    # check
+    r = await TestWorker().get(filter={"id": a.id})
+    assert r.field1.tzinfo is not None
+    assert r.field1.tzinfo.utcoffset(a.field1) is not None
