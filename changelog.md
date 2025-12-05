@@ -7,6 +7,8 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-12-05]
+
 ### Added
 - Added the new method 'CollectionWorker.get_all_cursor'.
 - Added the new method "CollectionWorker.collection".
