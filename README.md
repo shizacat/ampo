@@ -36,11 +36,11 @@ class ModelA(CollectionWorker):
 
 await init_collection()
 
-inst_a = ModelA("test", 123)
+inst_a = ModelA(field1="test", field2=123)
 await inst_a.save()
 
 # Get object
-inst_a = await ModelA.get(field1="test")
+inst_a = await ModelA.get(filter={"field1": "test"})
 ```
 
 ## Get all objects
