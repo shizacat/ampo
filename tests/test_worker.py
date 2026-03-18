@@ -1,9 +1,8 @@
 import pytest
 import datetime as dt
-from typing import Optional
+from typing import Optional, get_args
 
 from ampo import CollectionWorker, ORMConfig, PydanticObjectId
-from typing import get_args
 
 
 def test_getter_setter_lock_field():
