@@ -7,6 +7,12 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-03-18]
+
+### Fixed
+- `PydanticObjectId`: annotation metadata now exposes `title` (`"ObjectId"`), so `CollectionWorker._annotated_get_title` and relation helpers no longer raise `AttributeError` on such fields.
+
+
 ## [0.7.0] - 2025-12-05]
 
 ### Added

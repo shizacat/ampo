@@ -17,9 +17,12 @@ class _PydanticObjectIdAnnotation:
     """
     Based on
     https://docs.pydantic.dev/latest/concepts/types/#handling-third-party-types
-
     https://stackoverflow.com/questions/76686888/using-bson-objectid-in-pydantic-v2/76837550#76837550
+
+    ``title`` is used by ORM helpers that read ``Annotated`` ``__metadata__[0].title``.
     """
+
+    title: str = "ObjectId"
 
     @classmethod
     def __get_pydantic_core_schema__(
