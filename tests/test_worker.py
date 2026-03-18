@@ -2,7 +2,8 @@ import pytest
 import datetime as dt
 from typing import Optional
 
-from ampo import CollectionWorker, ORMConfig
+from ampo import CollectionWorker, ORMConfig, PydanticObjectId
+from typing import get_args
 
 
 def test_getter_setter_lock_field():
@@ -170,3 +171,17 @@ def test__get_cfg_lock_record_check_cache_03():
     # Verify cache works for custom configuration too
     cfg_custom2 = TestWorkerWithCustomLock._get_cfg_lock_record()
     assert cfg_custom is cfg_custom2
+
+
+def test_pydantic_object_id_annotated_title_for_worker():
+    """
+    _annotated_get_title reads __metadata__[0].title; PydanticObjectId must define it.
+    """
+
+    class W(CollectionWorker):
+        model_config = ORMConfig(orm_collection="test_pydantic_object_id_title")
+        name: str
+        ref_id: PydanticObjectId
+
+    assert get_args(PydanticObjectId)[1].title == "ObjectId"
+    assert W._annotated_get_title(W.__annotations__["ref_id"]) == "ObjectId"
