@@ -7,6 +7,10 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+### Added
+- Added tests for type of id before and after save
+- Added tests for type of id in get by id
+
 ## [0.7.1] - 2026-03-18]
 
 ### Fixed

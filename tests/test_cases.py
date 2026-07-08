@@ -1,5 +1,6 @@
 import os
 import datetime
+from sqlite3 import paramstyle
 from unittest.mock import AsyncMock
 
 import pytest
@@ -7,7 +8,7 @@ import pytest_asyncio
 import pymongo.errors
 from pydantic import Field
 
-from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection
+from ampo import AMPODatabase, CollectionWorker, ORMConfig, init_collection, PydanticObjectId
 from ampo.utils import datetime_utcnow_tz
 
 
@@ -358,7 +359,7 @@ async def test_save_bulk_04(ampo_db: AMPODatabase):
 @pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
 async def test_get_all_cm_01(ampo_db: AMPODatabase):
     """
-    Get data
+    Get data through cursor
     """
     class TestWorker(CollectionWorker):
         model_config = ORMConfig(
@@ -381,7 +382,7 @@ async def test_get_all_cm_01(ampo_db: AMPODatabase):
 @pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
 async def test_get_01(ampo_db: AMPODatabase):
     """
-    Check tz info
+    Check timezone info
     """
     class TestWorker(CollectionWorker):
         model_config = ORMConfig(
@@ -398,3 +399,76 @@ async def test_get_01(ampo_db: AMPODatabase):
     r = await TestWorker().get(filter={"id": a.id})
     assert r.field1.tzinfo is not None
     assert r.field1.tzinfo.utcoffset(a.field1) is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_type_id_befor_after_save(ampo_db: AMPODatabase):
+    """
+    Check type of id before and after save
+    """
+    class Child(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="child",
+        )
+        name: str = "test"
+
+    class Parent(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="parent",
+        )
+        field1: str = "test"
+        children_id: PydanticObjectId = Field(
+            ..., description="Id of the child"
+        )
+
+    # Creates child
+    child = Child(name="child1")
+    await child.save()
+
+    # Create parent
+    parent = Parent(field1="parent1", children_id=child.id)
+    # Check type of id before save
+    assert type(parent.children_id), PydanticObjectId
+    # Save parent
+    await parent.save()
+
+    # Get from DB and check type of id after save
+    parent_from_db = await Parent.get(filter={"id": parent.id})
+    # Check type of id from db
+    assert type(parent_from_db.children_id), PydanticObjectId
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not mongo_url, reason="Set mongo_url")
+async def test_get_by_id(ampo_db: AMPODatabase):
+    """
+    Check type of id in get by id
+    """
+    class Child(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="child",
+        )
+        name: str = "test"
+
+    class Parent(CollectionWorker):
+        model_config = ORMConfig(
+            orm_collection="parent",
+        )
+        field1: str = "test"
+        children_id: PydanticObjectId = Field(
+            ..., description="Id of the child"
+        )
+
+    # Creates all
+    child = Child(name="child1")
+    await child.save()
+    parent = Parent(field1="parent1", children_id=child.id)
+    await parent.save()
+
+    # Get parent from db by id of child
+    parent_from_db = await Parent.get(filter={
+        "children_id": parent.children_id
+    })
+    assert parent is not None
+    assert type(parent_from_db.children_id), PydanticObjectId
