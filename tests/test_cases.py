@@ -472,3 +472,10 @@ async def test_get_by_id(ampo_db: AMPODatabase):
     })
     assert parent is not None
     assert type(parent_from_db.children_id), PydanticObjectId
+
+    # Get parent by child id
+    parent_from_db = await Parent.get(filter={
+        "children_id": child._id
+    })
+    assert parent_from_db is not None
+    assert type(parent_from_db.children_id), PydanticObjectId
