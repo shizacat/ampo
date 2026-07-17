@@ -7,6 +7,12 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+### Changed
+- Migrated from Motor to the [PyMongo Async API](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/reference/migration/) (`AsyncMongoClient`). Dependency is now `pymongo>=4.13`; `motor` is no longer required.
+- `list_indexes` usage updated for PyMongo Async (`await collection.list_indexes()`).
+- `period_check_future` accepts coroutines and wraps them with `asyncio.ensure_future`.
+- Added `AMPODatabase.close()` / `AMPODatabase.aclose()` to shut down the async client cleanly.
+
 ### Added
 - Added tests for type of id before and after save
 - Added tests for type of id in get by id

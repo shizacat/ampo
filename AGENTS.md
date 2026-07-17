@@ -1,21 +1,22 @@
 # AMPO — Agent Guide
 
-Async ORM for MongoDB: Pydantic models as documents, Motor for I/O.
+Async ORM for MongoDB: Pydantic models as documents, PyMongo Async for I/O.
 
 ## What this project is
 
 Python library (`ampo`) that maps Pydantic v2 models to MongoDB collections. Users subclass `CollectionWorker`, configure via `ORMConfig`, call `AMPODatabase(url=...)` once, then `await init_collection()`.
 
 - Python ≥ 3.9 (package classifiers may lag; changelog dropped 3.8)
-- Dependencies: `motor>=3.2`, `pydantic>=2.8`, `typing_extensions`
+- Dependencies: `pymongo>=4.13`, `pydantic>=2.8`, `typing_extensions`
 - Build: hatchling (`pyproject.toml`); version from `ampo/__init__.py`
+- Driver: [PyMongo Async API](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/reference/migration/) (`AsyncMongoClient`), not Motor
 
 ## Layout
 
 ```
 ampo/
   __init__.py   # public API re-exports
-  db.py         # AMPODatabase singleton (Motor client)
+  db.py         # AMPODatabase singleton (AsyncMongoClient)
   worker.py     # CollectionWorker + relationships + init_collection
   utils.py      # ORMConfig, indexes, locks, hooks, helpers
   types.py      # PydanticObjectId (Annotated ObjectId)
@@ -38,15 +39,16 @@ flowchart LR
   Model --> CW["CRUD / lock / hooks"]
   CW --> Coll["collection()"]
   Coll --> DB["AMPODatabase singleton"]
-  DB --> Motor["AsyncIOMotorClient"]
+  DB --> Client["AsyncMongoClient"]
   Init["init_collection()"] --> Sub["_subclasses_all()"]
-  Sub --> Indexes["create_indexes via Motor"]
+  Sub --> Indexes["create_indexes via PyMongo Async"]
 ```
 
 ### Database (`db.py`)
 
-- `AMPODatabase` is a **singleton** (`SingletonMeta`). First call needs `url=`; later calls reuse the instance. Tests use `AMPODatabase.clear()`.
-- Holds Motor client + default DB from the URL. `get_db()` returns the database handle.
+- `AMPODatabase` is a **singleton** (`SingletonMeta`). First call needs `url=`; later calls reuse the instance.
+- Holds `AsyncMongoClient` + default DB from the URL. `get_db()` returns `AsyncDatabase`.
+- Prefer `await AMPODatabase.aclose()` to close the client and clear the singleton (tests / shutdown). `clear()` only drops the singleton without closing.
 - All collection access goes through `CollectionWorker.collection()` → `AMPODatabase().get_db().get_collection(...)`.
 
 ### Models (`worker.py`)
@@ -62,6 +64,12 @@ flowchart LR
 | Codec | Always `tz_aware=True` on collection codec options |
 
 `init_collection()` walks all subclasses with `orm_collection` and creates indexes (TTL, unique, partialFilterExpression, commitQuorum). Call once after models are imported.
+
+PyMongo Async specifics used here:
+
+- `find()` is sync and returns an async cursor; await `to_list()` / use `async for`
+- `await collection.list_indexes()` before iterating
+- network methods (`insert_one`, `create_indexes`, …) are coroutines
 
 ### Config (`utils.py` + `ORMConfig`)
 
@@ -96,7 +104,7 @@ Configured via `orm_lock_record`. Uses `findOneAndUpdate`. Stale locks reclaimab
 ## Conventions for changes
 
 - Docstrings: NumPy/SciPy style.
-- Prefer async Motor APIs; no sync PyMongo in library code.
+- Prefer PyMongo Async APIs; do not reintroduce Motor.
 - Do not break public exports in `ampo/__init__.py` without a changelog entry.
 - Relation field detection depends on Annotated Field `title` (`RFManyToMany` / `RFOneToMany` / `ObjectId`) — preserve titles when touching types.
 - `_id` / `id` duality: keep filter prep and dump/load consistent.
@@ -110,7 +118,7 @@ env TEST_MONGO_URL=mongodb://localhost/test pytest
 ```
 
 - Tests skip if `TEST_MONGO_URL` is unset.
-- Each test typically drops DB in `asyncSetUp` and calls `AMPODatabase.clear()` in tearDown.
+- Each test typically drops DB in `asyncSetUp` and calls `await AMPODatabase.aclose()` in tearDown.
 - Root scripts like `check-bulk.py`, `test_2.py`, `.env` are local/scratch — do not treat as library API.
 
 ## Changelog

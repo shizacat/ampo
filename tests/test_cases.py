@@ -26,7 +26,7 @@ async def ampo_db():
         await init_collection()
         yield db
     finally:
-        AMPODatabase.clear()
+        await AMPODatabase.aclose()
 
 
 # --- Tests ----

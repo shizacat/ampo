@@ -131,7 +131,7 @@ def datetime_utcnow_tz() -> datetime:
 
 
 async def period_check_future(
-    aws: asyncio.Future,
+    aws: Union[asyncio.Future, Awaitable[Any]],
     period: float = 20.0,
     msg: Optional[str] = None,
     logger: Optional[logging.Logger] = None,
@@ -140,7 +140,7 @@ async def period_check_future(
     Periodic check awaitables
 
     Args:
-        aws - awaitable
+        aws - Future or awaitable (coroutine is wrapped with ensure_future)
         period - Period of checking, in seconds
         msg - Message for logger
         logger - Logger
@@ -148,6 +148,8 @@ async def period_check_future(
     # configure logger
     if logger is None:
         logger = logging.getLogger(__name__)
+    if not isinstance(aws, asyncio.Future):
+        aws = asyncio.ensure_future(aws)
     if msg is None:
         msg = f"Periodic check, running '{aws}' ..."
 

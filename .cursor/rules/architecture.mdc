@@ -9,7 +9,7 @@ Async Pydantic→MongoDB ORM. Read `AGENTS.md` for full architecture.
 
 ## Core map
 
-- `ampo/db.py` — `AMPODatabase` singleton (Motor)
+- `ampo/db.py` — `AMPODatabase` singleton (`AsyncMongoClient`)
 - `ampo/worker.py` — `CollectionWorker`, relations, locks, `init_collection`
 - `ampo/utils.py` — `ORMConfig`, indexes, hooks, lock config
 - `ampo/types.py` — `PydanticObjectId`
@@ -22,6 +22,6 @@ Public API only via `ampo/__init__.py`.
 - Models subclass `CollectionWorker`; config in `model_config = ORMConfig(...)`.
 - Persist via `_id`: `None` → insert, else replace. Public `id` is `str | None`.
 - Relations: `RFManyToMany` / `RFOneToMany` (Annotated titles). DB stores `*_ids` / `*_id`. Related objects must be saved first. Keep Field `title`s intact.
-- Always async Motor; prefer `collection()` over `_get_collection()`.
+- Use PyMongo Async (`pymongo>=4.13`); do not use Motor. Prefer `collection()` over `_get_collection()`.
 - Docstrings: NumPy style. Changelog in `changelog.md` for user-facing changes.
-- Tests need `TEST_MONGO_URL`; clear singleton with `AMPODatabase.clear()`.
+- Tests need `TEST_MONGO_URL`; tear down with `await AMPODatabase.aclose()`.

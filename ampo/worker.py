@@ -22,9 +22,9 @@ import sys
 
 import bson.son
 from bson import ObjectId
-from motor import core as motor_core
 from pydantic import BaseModel, Field
 from pymongo import IndexModel, ReturnDocument
+from pymongo.asynchronous.collection import AsyncCollection
 from bson.codec_options import CodecOptions
 
 from .db import AMPODatabase
@@ -535,7 +535,7 @@ class CollectionWorker(
         setattr(self, self._get_cfg_lock_record().lock_field_time_start, value)
 
     @classmethod
-    def collection(cls) -> motor_core.AgnosticCollection:
+    def collection(cls) -> AsyncCollection:
         """Return collection"""
         return (
             AMPODatabase()
@@ -703,7 +703,7 @@ class CollectionWorker(
         return result
 
     @classmethod
-    def _get_collection(cls) -> motor_core.AgnosticCollection:
+    def _get_collection(cls) -> AsyncCollection:
         """Return collection"""
         warnings.warn(
             "This method is deprecated. Instead, use the 'collection' method."
@@ -819,7 +819,7 @@ async def init_collection():
                 if len(orm_index.keys) != 1:
                     raise ValueError("For TTL index, the key is set only one")
                 # Check exist
-                async for index in collection.list_indexes():
+                async for index in await collection.list_indexes():
                     if index["key"] != bson.son.SON([(orm_index.keys[0], 1)]):
                         continue
                     if index.get("expireAfterSeconds") is None:
@@ -843,15 +843,17 @@ async def init_collection():
             if orm_index.commit_quorum_value is not None:
                 cr_ind_opt["commitQuorum"] = orm_index.commit_quorum_value
             await period_check_future(
-                aws=collection.create_indexes(
-                    [
-                        IndexModel(
-                            keys=orm_index.keys,
-                            name=index_name,
-                            **options,
-                        )
-                    ],
-                    **cr_ind_opt,
+                aws=asyncio.ensure_future(
+                    collection.create_indexes(
+                        [
+                            IndexModel(
+                                keys=orm_index.keys,
+                                name=index_name,
+                                **options,
+                            )
+                        ],
+                        **cr_ind_opt,
+                    )
                 ),
                 period=40.0,
                 msg=f"The index '{index_name}' is creating...",
