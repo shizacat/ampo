@@ -7,6 +7,8 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-20
+
 ### Changed
 - Migrated from Motor to the [PyMongo Async API](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/reference/migration/) (`AsyncMongoClient`). Dependency is now `pymongo>=4.13`; `motor` is no longer required.
 - `list_indexes` usage updated for PyMongo Async (`await collection.list_indexes()`).
@@ -17,13 +19,13 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - Added tests for type of id before and after save
 - Added tests for type of id in get by id
 
-## [0.7.1] - 2026-03-18]
+## [0.7.1] - 2026-03-18
 
 ### Fixed
 - `PydanticObjectId`: annotation metadata now exposes `title` (`"ObjectId"`), so `CollectionWorker._annotated_get_title` and relation helpers no longer raise `AttributeError` on such fields.
 
 
-## [0.7.0] - 2025-12-05]
+## [0.7.0] - 2025-12-05
 
 ### Added
 - Added the new method 'CollectionWorker.get_all_cursor'.
@@ -38,7 +40,7 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
 - The CollectionWorker always returns a timestamp with timezone awareness
 
 
-## [0.5.0] - 2025-10-14]
+## [0.5.0] - 2025-10-14
 
 ### Added
 - Added exceptions: AmpoException, AmpoDocumentNotFound, AmpoDocumentIsLock
@@ -51,13 +53,13 @@ Types of changes: Added, Changed, Deprecated, Removed, Fixed, Security
   - ...
 
 
-## [0.4.3] - 2025-06-05]
+## [0.4.3] - 2025-06-05
 
 ### Added
 - Added method '_subclasses_all' to traverse all subclasses including descendant subclasses
 
 
-## [0.4.2] - 2025-06-02]
+## [0.4.2] - 2025-06-02
 
 ### Added
 - To the index was added new option - partialFilterExpression
