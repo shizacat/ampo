@@ -44,7 +44,7 @@ class Main(unittest.IsolatedAsyncioTestCase):
         return await super().asyncSetUp()
 
     async def asyncTearDown(self) -> None:
-        AMPODatabase.clear()
+        await AMPODatabase.aclose()
 
         return await super().asyncTearDown()
 

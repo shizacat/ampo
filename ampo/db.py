@@ -1,8 +1,7 @@
 from typing import Optional
 
-from motor import motor_asyncio
-from pymongo.database import Database
-from motor import core as motor_core
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
 
 class SingletonMeta(type):
@@ -34,12 +33,26 @@ class AMPODatabase(metaclass=SingletonMeta):
             url : str
                 URL for connect to mongodb
         """
-        self._client: Optional[motor_core.AgnosticClient] = None
-        self._db: Optional[Database] = None
+        self._client: Optional[AsyncMongoClient] = None
+        self._db: Optional[AsyncDatabase] = None
 
         # Connect
-        self._client = motor_asyncio.AsyncIOMotorClient(url)
+        self._client = AsyncMongoClient(url)
         self._db = self._client.get_default_database()
 
-    def get_db(self) -> motor_core.AgnosticDatabase:
+    def get_db(self) -> AsyncDatabase:
         return self._db
+
+    async def close(self):
+        """Close the AsyncMongoClient connection."""
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
+            self._db = None
+
+    @classmethod
+    async def aclose(cls):
+        """Close the client (if any) and clear the singleton."""
+        if cls._instance is not None:
+            await cls._instance.close()
+        cls.clear()
